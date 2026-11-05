@@ -1,0 +1,608 @@
+﻿##|TYPE Template
+##|UNIQUEID bab9b556-ce44-43a0-ad4b-c617faa74713
+##|TITLE VerifiedDAO
+##|NAMESPACE 
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE C#
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll %>
+<%#NAMESPACE System, System.Text, System.Collections,System.Collections.Generic, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+		input["FunctionGenInfoData"] = ui.FunctionGenInfoData;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using System.Collections.Generic;
+using EHA.ZESA.Util.GeneratorUI;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+	  if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		ArrayList data = input["Data"] as ArrayList;
+		ArrayList functionGenInfoData = input["FunctionGenInfoData"] as ArrayList;
+		ArrayList csFiles = new ArrayList();
+		Dictionary<string,string> dbReaderDatatypeColumns;
+		string filepath;
+
+		foreach(GenInfo info in data)
+		{
+			IColumns cols = null;
+			string entityname = string.Empty;
+			string entitynameUpper = string.Empty;
+			FunctionGenInfo functionGenInfo = null;
+			
+			// übersteuernde Kriterien aufbauen
+			dbReaderDatatypeColumns = GeneratorHelper.GetDbReaderDatatypeColumns(info);
+			
+			// Differenzen zwischen ITable und IView eliminieren
+			if(info.ObjectType == "Table")
+			{
+				ITable table = MyMeta.DefaultDatabase.Tables[info.ObjectName];
+				cols = table.Columns;
+				entityname = GeneratorHelper.ConvertName(info.EntityName);
+				entitynameUpper = info.EntityName;
+			}
+			else if(info.ObjectType == "View")
+			{
+				IView view = MyMeta.DefaultDatabase.Views[info.ObjectName];
+				cols = view.Columns;
+				entityname = GeneratorHelper.ConvertName(info.ObjectName);
+				entitynameUpper = info.ObjectName;
+			}
+			else if(info.ObjectType == "Function")
+			{
+				entityname = GeneratorHelper.ConvertName(info.ObjectName);
+				entitynameUpper = info.ObjectName;
+				foreach(FunctionGenInfo funcInfo in functionGenInfoData)
+				{
+					if(funcInfo.FunctionName == info.ObjectName)
+					{
+						functionGenInfo = funcInfo;
+					}
+				}
+			}
+
+			// Klassennamen bilden
+			string classname     = entityname;
+			string fullClassname = "EHA.ZESA.Communication.RemotingServiceInterface.DAO." + info.Namespace + "." + entityname + "." + classname;
+			
+			// Dateinamen bilden
+			string fileNameInProject = "DAO\\" + info.Namespace + "\\" + entityname + "\\" + classname + "DAO.cs";
+			filepath = input["TargetPath"].ToString();
+			if (!filepath.EndsWith("\\") ) filepath += "\\";
+			string filePathProjectFile = filepath + "Communication\\RemotingServiceInterface\\RemotingServiceInterface.csproj";
+			filepath += "Communication\\RemotingServiceInterface\\DAO\\" + info.Namespace + "\\" + entityname + "\\";
+			
+			// Verzeichnis bei Bedarf anlegen
+			if(!Directory.Exists(filepath))
+			{
+				Directory.CreateDirectory(filepath);
+			}
+			string filename = filepath + entityname + "DAO.cs";
+			
+			// File ausschecken
+			TfsHelper.Instance.CheckOut(filename);
+			
+			// Dateinamen für Logging zwischenspeichern
+			csFiles.Add(fullClassname);
+			
+			// Markierung für geschützten Bereich im Source definieren
+			output.setPreserveSource(filename, "/***", "***/");
+%>using System;
+using System.Collections;
+using System.Data;
+
+using EHA.ZESA.Communication.RemotingServiceInterface.DAO.Allgemein;
+
+<% output.preserve("Individuelle_Usings");%>
+
+namespace EHA.ZESA.Communication.RemotingServiceInterface.DAO.<%=info.Namespace%>.<%=entityname%>
+
+{
+	/// <summary>
+	/// Data Access Object für die Entität <%=info.ObjectName%>.
+	/// </summary>
+	/// <remarks>
+	/// <para><b>Historie</b></para>
+	/// <div class="tablediv">
+	/// <table class="dtTABLE" cellspacing="0">
+	///		<tr>
+	///			<th width="20%">Autor</th>
+	///			<th width="20%">Datum</th>
+	///			<th width="60%">Bemerkungen</th>
+	///		</tr>
+	///		<tr>
+	///			<td width="20%">MyGeneration</td>
+	///			<td width="20%"><%=DateTime.Now.ToShortDateString()%></td>
+	///			<td width="60%">Generiert</td>
+	///		</tr>
+	/// </table>
+	/// </div>
+	/// </remarks>
+	[Serializable]
+	public class <%=entityname%>DAO : BaseVerifiedClientDAO
+	{
+		#region Member-Variablen
+<%if(info.ObjectType == "Function")
+{%>	
+		// Konstanten für TablevaluedParameter der Funktion<%
+	foreach(TvfColumnInfo param in functionGenInfo.FunctionInputParameterColumns)
+	{
+	 if(param.LanguageType == "table")
+	 {
+	  string paramName = string.Format("TVP_TAB{0}", param.Name.ToUpper().Replace("@PTAB",""));
+	  %>
+		public const string <%=paramName%> = "<%=param.Name%>";<%
+
+     }
+	}
+}%>
+
+		// interner Name des Datasets
+		public const string DATASET_NAME = "<%=entityname%>DAO";
+
+		// Mögliche Tabellennamen der Entität <%=info.ObjectName%> im DataSet
+		public const string TBL_DATA = "TD_<%=entityname%>_List";
+		public const string TBL_STAT = "TS_<%=entityname%>_List";
+		public const string TBL_COL  = "TC_<%=entityname%>_List";
+
+		// Attribute von der Entität <%=info.ObjectName%>
+<%if(info.ObjectType == "Function")
+{
+	OutputAttributes(functionGenInfo);
+}
+else
+{
+	OutputAttributes(cols);
+}%>
+<% output.preserve("Individuelle_Member_Variablen");%>		
+
+		#endregion Member-Variablen
+
+		#region Konstruktoren
+
+		/// <summary>
+		/// Standard-Konstruktor.
+		/// </summary>
+		public <%=entityname%>DAO()
+		{
+<%if(info.ObjectType == "Function")
+{
+%>			InitTableValuedParameter();<%
+}%>
+		}
+
+		#endregion Konstruktoren
+
+		#region Initialisierung
+<%if(info.ObjectType == "Function")
+{%>		
+		/// <summary>
+		/// Initialisiert TableValuedParameter
+		/// </summary>
+		public void InitTableValuedParameter()
+		{<%
+	foreach(TvfColumnInfo param in functionGenInfo.FunctionInputParameterColumns)
+	{
+	 if(param.LanguageType == "table")
+	 {
+	  string paramName = string.Format("TVP_TAB{0}", param.Name.ToUpper().Replace("@PTAB",""));
+	  %>
+			SetParameterForFunction(<%=paramName%>, InitDataTableForFunctionTvp(<%=paramName%>));<%
+     }
+	} // Ende foreach (TvfColumnInfo param in functionGenInfo.FunctionInputParameterColumns)
+	%>
+		}<%
+} // Ende if(info.ObjectType == "Function")%>
+
+		#endregion Initialisierung
+
+		#region Property-Methoden
+
+		/// <summary>
+		/// Liefert eine Kopie des im VerifiedDAO enthaltenen DataSets.
+		/// </summary>
+		/// <remarks>Diese Property ist readonly.</remarks>
+		public DataSet <%=entityname%>DataSet
+		{
+			get
+			{
+				DataSet data = new DataSet("DS");
+				data.Tables.Add(GetTable(TableDataName).Copy());
+				data.Tables.Add(GetTable(TableStatName).Copy());
+				data.Tables.Add(GetTable(TableColName).Copy());
+				return data;
+			}	
+		}
+
+		/// <summary>
+		/// Gibt den Namen der Tabelle, welche die Daten enthält, zurück.
+		/// </summary>
+		/// <remarks>Diese Property ist readonly.</remarks>
+		public override string TableDataName
+		{
+			get { return TBL_DATA; }
+		}
+
+		/// <summary>
+		/// Gibt den Namen der Tabelle, welche die Statusinformationen enthält, zurück.
+		/// </summary>
+		/// <remarks>Diese Property ist readonly.</remarks>
+		public override string TableStatName
+		{
+			get { return TBL_STAT; }
+		}
+
+		/// <summary>
+		/// Gibt den Namen der Tabelle, welche das Spaltenmapping enthält, zurück.
+		/// </summary>
+		/// <remarks>Diese Property ist readonly.</remarks>
+		public override string TableColName
+		{
+			get { return TBL_COL; }
+		}
+
+<% if(null != cols)
+   {
+	foreach(IColumn col in cols)
+    { 
+	   string colName = GeneratorHelper.ConvertName(col.Name); %>
+		/// <summary>
+		/// Gibt den internen Namen der Spalte <%=col.Name%> zurück.
+		/// </summary>
+		/// <remarks>Diese Property ist readonly.</remarks>
+		public string Name<%=colName%>
+		{
+			get { return <%=colName.ToUpper()%>; }
+		}
+
+		/// <summary>
+		/// Gibt den Wert der Spalte <%=col.Name%> als String zurück.
+		/// </summary>
+		/// <remarks>Diese Property ist readonly. Wenn der Wert der Spalte nicht
+		/// zu einem String konvertiert werden kann, wird <c>string.Empty</c> zurückgeliefert.</remarks>
+		public string Str<%=colName%>
+		{
+			get	{ return GetValue(Name<%=colName%>).ToString();	}
+		}
+
+		/// <summary>
+		/// Setzt oder liest den Wert der Spalte <%=col.Name%>.
+		/// </summary>
+		public object <%=colName%>
+		{
+			get { return GetValue(Name<%=colName%>); }
+			set { SetValue(Name<%=colName%>, value); }
+		}
+
+		/// <summary>
+		/// Setzt oder liest den Wert des Parameters für Einschränkungen auf die Spalte <%=col.Name%> in Abfragen.
+		/// </summary>
+		public string Prm<%=colName%>
+		{
+			get { return GetParameter(Name<%=colName%>); }
+			set { SetParameter(Name<%=colName%>, value); }
+		}
+<% if(GeneratorHelper.IsNumeric(col, dbReaderDatatypeColumns))
+   {%>
+		/// <summary>
+		/// Setzt oder liest den Von-Wert des Parameters für Einschränkungen auf die Spalte <%=col.Name%> in Abfragen.
+		/// </summary>
+		public string PrmVon_<%=colName%>
+		{
+			get { return GetParameter("Von_" + Name<%=colName%>); }
+			set { SetParameter("Von_" + Name<%=colName%>, value); }
+		}
+
+		/// <summary>
+		/// Setzt oder liest den Bis-Wert des Parameters für Einschränkungen auf die Spalte <%=col.Name%> in Abfragen.
+		/// </summary>
+		public string PrmBis_<%=colName%>
+		{
+			get { return GetParameter("Bis_" + Name<%=colName%>); }
+			set { SetParameter("Bis_" + Name<%=colName%>, value); }
+		}
+<% } // Ende if(GeneratorHelper.IsNumeric(col, dbReaderDatatypeColumns)) %>
+<% } // Ende foreach(IColumn col in cols) %>
+<% } // Ende null != cols 
+else if (null != functionGenInfo)
+{
+    foreach(TvfColumnInfo col in functionGenInfo.FunctionInputParameterColumns)
+	{
+	  string paramName = string.Format("TVP_TAB{0}", col.Name.ToUpper().Replace("@PTAB",""));
+	  string colName = GeneratorHelper.ConvertName(col.Name);
+	  if(col.LanguageType == "table")
+	  {%>
+		/// <summary>
+        /// Fügt eine Id zum TableValuedParameter <%=col.Name%> hinzu.
+        /// </summary>
+        public void PrmAdd<%=colName%>(long pId)
+        {
+			DataTable dataTable= (DataTable)GetFunctionParameter(<%=paramName%>);
+            DataRow dataRow = dataTable.NewRow();
+            dataRow[TVP_ID_COLUMN] = pId;
+            dataTable.Rows.Add(dataRow);
+			SetParameterForFunction(<%=paramName%>, dataTable);
+        }
+<%   }
+     else
+     {%>
+		/// <summary>
+		/// Setzt oder liest den Wert des Function Parameters <%=col.Name%>
+		/// </summary>
+		public string Prm<%=colName%>
+		{
+			get { return GetFunctionParameter("<%=col.Name%>").ToString(); }
+			set { SetParameterForFunction("<%=col.Name%>", value); }
+		}
+<%   } // Ende if else (col.LanguageType == "table")
+  } // Ende foreach(TvfColumnInfo col in functionGenInfo.FunctionInputParameterColumns)
+  
+    foreach(TvfColumnInfo col in functionGenInfo.FunctionReturnValueColumns)
+	{
+	  string colName = GeneratorHelper.ConvertName(col.Name);%>
+		/// <summary>
+		/// Gibt den internen Namen der Spalte <%=col.Name%> zurück.
+		/// </summary>
+		/// <remarks>Diese Property ist readonly.</remarks>
+		public string Name<%=colName%>
+		{
+			get { return <%=colName.ToUpper()%>; }
+		}
+
+		/// <summary>
+		/// Gibt den Wert der Spalte <%=col.Name%> als String zurück.
+		/// </summary>
+		/// <remarks>Diese Property ist readonly. Wenn der Wert der Spalte nicht
+		/// zu einem String konvertiert werden kann, wird <c>string.Empty</c> zurückgeliefert.</remarks>
+		public string Str<%=colName%>
+		{
+			get	{ return GetValue(Name<%=colName%>).ToString();	}
+		}
+		
+		/// <summary>
+		/// Setzt oder liest den Wert der Spalte <%=col.Name%>.
+		/// </summary>
+		public object <%=colName%>
+		{
+			get { return GetValue(Name<%=colName%>); }
+			set { SetValue(Name<%=colName%>, value); }
+		}
+	  
+		/// <summary>
+		/// Setzt oder liest den Wert des Parameters für Einschränkungen auf die Spalte <%=col.Name%> in Abfragen.
+		/// </summary>
+		public string Prm<%=colName%>
+		{
+			get { return GetParameter(Name<%=colName%>); }
+			set { SetParameter(Name<%=colName%>, value); }
+		}
+<%if(GeneratorHelper.IsNumeric(col, dbReaderDatatypeColumns))
+	  {%>
+		/// <summary>
+		/// Setzt oder liest den Von-Wert des Parameters für Einschränkungen auf die Spalte <%=col.Name%> in Abfragen.
+		/// </summary>
+		public string PrmVon_<%=colName%>
+		{
+			get { return GetParameter("Von_" + Name<%=colName%>); }
+			set { SetParameter("Von_" + Name<%=colName%>, value); }
+		}
+
+		/// <summary>
+		/// Setzt oder liest den Bis-Wert des Parameters für Einschränkungen auf die Spalte <%=col.Name%> in Abfragen.
+		/// </summary>
+		public string PrmBis_<%=colName%>
+		{
+			get { return GetParameter("Bis_" + Name<%=colName%>); }
+			set { SetParameter("Bis_" + Name<%=colName%>, value); }
+		}
+    <%} // Ende if(GeneratorHelper.IsNumeric(col, dbReaderDatatypeColumns))
+	} // Ende foreach(TvfColumnInfo col in functionGenInfo.FunctionReturnValueColumns)
+	foreach(TvfColumnInfo col in functionGenInfo.FunctionReturnValueColumns)
+    {
+		string colName = GeneratorHelper.ConvertName(col.Name);%>
+		/// <summary>
+		/// Gibt die Liste von Parameterwerten für IN-Abfragen auf die Spalte <%=col.Name%> zurück.
+		/// </summary>
+		public ArrayList GetPrm<%=colName%>_Array()
+		{
+			return GetParameterArray(<%=colName.ToUpper()%>);
+		}
+
+		/// <summary>
+		/// Setzt einen Wert für IN-Abfragen auf die Spalte <%=col.Name%>.
+		/// </summary>
+		/// <param name="pValue">Der abzufragende Wert</param>
+		public void AddPrm<%=colName%>_Array(string pValue)
+		{
+			AddParameters(<%=colName.ToUpper()%>, pValue);
+		}
+
+		/// <summary>
+		/// Löscht die Liste von Parameterwerten für IN-Abfragen auf die Spalte <%=col.Name%>.
+		/// </summary>
+		public void ClearPrm<%=colName%>_Array()
+		{
+			ClearParameters(<%=colName.ToUpper()%>);
+		}
+	<%} // Ende foreach(TvfColumnInfo col in functionGenInfo.FunctionReturnValueColumns)
+} // Ende if(null != functionGenInfo)
+%>
+		#endregion Property-Methoden
+
+		#region Öffentliche Methoden
+
+<% if(null != cols)
+   {
+    foreach(IColumn col in cols)
+    { 
+	   string colName = GeneratorHelper.ConvertName(col.Name); %>
+		/// <summary>
+		/// Gibt die Liste von Parameterwerten für IN-Abfragen auf die Spalte <%=col.Name%> zurück.
+		/// </summary>
+		public ArrayList GetPrm<%=colName%>_Array()
+		{
+			return GetParameterArray(<%=colName.ToUpper()%>);
+		}
+
+		/// <summary>
+		/// Setzt einen Wert für IN-Abfragen auf die Spalte <%=col.Name%>.
+		/// </summary>
+		/// <param name="pValue">Der abzufragende Wert</param>
+		public void AddPrm<%=colName%>_Array(string pValue)
+		{
+			AddParameters(<%=colName.ToUpper()%>, pValue);
+		}
+
+		/// <summary>
+		/// Löscht die Liste von Parameterwerten für IN-Abfragen auf die Spalte <%=col.Name%>.
+		/// </summary>
+		public void ClearPrm<%=colName%>_Array()
+		{
+			ClearParameters(<%=colName.ToUpper()%>);
+		}
+<% } // Ende foreach(IColumn col in cols) %>
+<% } // Ende null != cols %>
+		/// <summary>
+		/// Fügt alle Tabellen eines DataSets zum internen DataSet hinzu,
+		/// </summary>
+		/// <param name="pData">Ein <see cref="DataSet"/>-Objekt</param>
+		public override void AddDataSet(DataSet pData)
+		{
+			base.AddDataSet(pData);
+			mData.DataSetName = DATASET_NAME;
+		}
+
+		/// <summary>
+		/// Fügt dem internen DataSet eine Tabelle hinzu.
+		/// </summary>
+		/// <param name="pTable">Ein <see cref="DataTable"/>-Objekt.</param>
+		public override void AddTable(DataTable pTable)
+		{
+			base.AddTable(pTable);
+			mData.DataSetName = DATASET_NAME;
+		}
+
+		#endregion Öffentliche Methoden
+
+		#region private Methoden
+
+		#endregion private Methoden
+
+		#region Individuelle Anpassungen
+
+		<% output.preserve("Individuelle_Anpassungen");%>
+
+		#endregion Individuelle Anpassungen
+		
+	}
+}
+<%
+			// neue Dateien der Projektdatei hinzufügen
+			bool addToProject = false;
+			if(!File.Exists(filename))
+				addToProject = true;
+			
+			// Save File
+			output.save(filename, false);
+			output.clear();	
+			
+			// neue Dateien der Projektdatei hinzufügen
+			if(addToProject)
+			{
+				// Projektdatei auschecken
+				TfsHelper.Instance.CheckOut(filePathProjectFile);
+				GeneratorHelper.AddFileToProject(Project.RemotingServiceInterface, fileNameInProject);
+				TfsHelper.Instance.Add(filename);
+			}
+		}
+		output.clear();
+		output.writeln("Generierung VerifiedDAO-Klassen erfolgreich beendet...");
+		output.writeln("");
+		output.writeln("Ausgabeverzeichnis = " + input["TargetPath"]);
+		output.writeln("");
+		output.writeln("Folgende Dateien wurden generiert:" );
+		output.writeln("");
+		foreach(string csFile in csFiles)
+		{
+		    output.writeln(csFile);
+		}
+		output.writeln("");
+		output.writeln("==> Ende <==");
+		output.writeln("");
+		string logname = input["TargetPath"].ToString();
+		if (!logname.EndsWith("\\") ) logname += "\\";
+		logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+		output.append(logname);
+    output.clear();	
+		MyMeta.SaveUserMetaData();
+	}
+
+	// Gibt alle Spalten der Tabelle als Attribute-Attribut aus
+	// Beispiel:
+	// public const string BENUTZER_ID = "Benutzer_Id";
+	private void OutputAttributes(IColumns pColumns)
+	{
+		if(null != pColumns)
+		{
+			int oldTabLevel = output.tabLevel;
+			output.tabLevel = 2;
+			int maxLength = GeneratorHelper.MaxColLength(pColumns);
+			foreach(Column col in pColumns)
+			{
+				output.autoTabLn("public const string " + col.Name.ToUpper() + GeneratorHelper.FillUp(col.Name, maxLength) + "     = \"" + GeneratorHelper.ConvertName(col.Name) + "\";");
+			}
+			output.tabLevel = oldTabLevel;
+		}
+	}
+	
+	// Gibt alle Spalten der Funktion als Attribute-Attribut aus
+	// Beispiel:
+	// public const string BENUTZER_ID = "Benutzer_Id";
+	private void OutputAttributes(FunctionGenInfo pFunctionGenInfo)
+	{
+		if(null != pFunctionGenInfo)
+		{
+			int oldTabLevel = output.tabLevel;
+			output.tabLevel = 2;
+			int maxLength = GeneratorHelper.MaxColLength(pFunctionGenInfo);
+			foreach(TvfColumnInfo col in pFunctionGenInfo.FunctionReturnValueColumns)
+			{
+				output.autoTabLn("public const string " + col.Name.ToUpper() + GeneratorHelper.FillUp(col.Name, maxLength) + "     = \"" + GeneratorHelper.ConvertName(col.Name) + "\";");
+			}
+			output.tabLevel = oldTabLevel;
+		}
+	}
+}
+%>
+##|BODY_END

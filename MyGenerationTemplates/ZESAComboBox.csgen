@@ -1,0 +1,627 @@
+﻿##|TYPE Template
+##|UNIQUEID 25d682c2-1cec-4713-a4ac-63acb615cf87
+##|TITLE ZESAComboBox
+##|NAMESPACE 
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE C#
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll %>
+<%#NAMESPACE System, System.Text, System.Collections, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using EHA.ZESA.Util.GeneratorUI;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+	  if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		ArrayList data = input["Data"] as ArrayList;
+		ArrayList csFiles = new ArrayList();
+		string filepath;
+
+		foreach(GenInfo info in data)
+		{
+		  IColumns cols;
+			string entityname;
+			string entitynameUpper;
+			
+			// Differenzen zwischen ITable und IView eliminieren
+			if(info.ObjectType == "Table")
+			{
+				ITable table = MyMeta.DefaultDatabase.Tables[info.ObjectName];
+				cols = table.Columns;
+				entityname = GeneratorHelper.ConvertName(info.EntityName);
+				entitynameUpper = info.EntityName;
+			}
+			else
+			{
+				IView view = MyMeta.DefaultDatabase.Views[info.ObjectName];
+				cols = view.Columns;
+				entityname = GeneratorHelper.ConvertName(info.ObjectName);
+				entitynameUpper = info.ObjectName;
+			}
+			
+			// Klassennamen bilden
+			string classname     = entityname + "ComboUC";
+			string fullClassname = "EHA.ZESA.Client." + info.Namespace + ".Allgemein." + classname;
+
+			// dateinamen bilden
+			filepath = input["TargetPath"].ToString();
+			if (!filepath.EndsWith("\\") ) filepath += "\\";
+			filepath += "Client\\ZESAClient\\" + info.Namespace + "\\Allgemein\\";
+			
+			// Verzeichnis bei Bedarf anlegen
+			if(!Directory.Exists(filepath))
+			{
+				Directory.CreateDirectory(filepath);
+			}
+			string filename  = filepath + entityname + "ComboUC.cs";
+			
+			// File ausschecken
+			TfsHelper.Instance.CheckOut(filename);
+			
+			// dateinamen für Logging zwischenspeichern
+			csFiles.Add(fullClassname);
+
+			// Markierung für geschützten Bereich definieren
+			output.setPreserveSource(filename, "/***", "***/");
+			
+%>using System;
+using System.ComponentModel;
+using System.Data;
+using System.Collections;
+using System.Drawing;
+using System.Windows.Forms;
+
+using EHA.ZESA.Client.Allgemein;
+using EHA.ZESA.Client.Allgemein.DialogControl;
+using EHA.ZESA.Client.Allgemein.RemotingClient;
+
+using EHA.ZESA.Communication.RemotingServiceInterface.Allgemein;
+using EHA.ZESA.Communication.RemotingServiceInterface.Allgemein.ClientContext;
+using EHA.ZESA.Communication.RemotingServiceInterface.<%=info.Namespace%>;
+
+using EHA.ZESA.Components.Lov;
+
+namespace EHA.ZESA.Client.<%=info.Namespace%>.Allgemein
+{
+	/// <summary>
+	/// UserControl für Anzeige / Selektion der Entität <%=info.ObjectName%>.
+	/// </summary>
+	/// <remarks>
+	/// <para><b>Historie</b></para>
+	/// <div class="tablediv">
+	/// <table class="dtTABLE" cellspacing="0">
+	///		<tr>
+	///			<th width="20%">Autor</th>
+	///			<th width="20%">Datum</th>
+	///			<th width="60%">Bemerkungen</th>
+	///		</tr>
+	///		<tr>
+	///			<td width="20%">MyGeneration</td>
+	///			<td width="20%"><%=DateTime.Now.ToShortDateString()%></td>
+	///			<td width="60%">Erstellt</td>
+	///		</tr>
+	/// </table>
+	/// </div>
+	/// </remarks>
+	public class <%=classname%> : BaseEditUserControl
+	{
+		#region Member-Variablen
+
+		// Reihenfolge:
+		// public const ...
+		// protected const ...
+		// private const ...
+		// public ...
+		// protected ...
+		// private
+
+		[Category("Behavior")]
+		[Description("Tritt auf, wenn der Benutzer einen Eintrag aus der Liste ausgewählt hat.")]
+		public event EventHandler SelectedIndexChanged;
+
+		private I<%=entityname%>Service mService;
+
+<%
+		output.preserve("Individuelle Member-Variablen");
+%>
+		#endregion Member-Variablen
+
+		#region Vom Designer generierte Variablen
+
+		private System.Windows.Forms.ComboBox cbo<%=entityname%>;
+		private System.Windows.Forms.Label lbl<%=entityname%>;
+		private System.Windows.Forms.TextBox txt<%=entityname%>;
+
+		// Diese Variable wird nur vom Visual Designer verwendet.
+		private Container components = null;
+
+		#endregion Vom Designer generierte Variablen
+
+		#region Konstruktoren
+
+		/// <summary>
+		/// Standardkonstruktor
+		/// </summary>
+		public <%=classname%>()
+		{
+			// Erforderlich für die Windows Form-Designerunterstützung
+			InitializeComponent();
+		}
+
+		#endregion Konstruktoren
+
+		#region Destruktoren
+
+		/// <summary>
+		/// Die verwendeten Ressourcen bereinigen.
+		/// </summary>
+		protected override void Dispose(bool disposing)
+		{
+			if(disposing)
+			{
+				if(components != null)
+				{
+					components.Dispose();
+				}
+			}
+			base.Dispose(disposing);
+		}
+
+		#endregion Destruktoren
+
+		#region Initialisierung
+
+		/// <summary>
+		/// Member-Variablen und Dialog initialisieren sowie Daten anzeigen.
+		/// </summary>
+		public override void InitView()
+		{
+			try
+			{
+				mService = (I<%=entityname%>Service)RemoteServiceFactory.Instance.GetService(RemoteServices.<%=entityname%>Service);
+				InitControls();
+				LoadListOfValues();
+			}
+			catch(Exception e)
+			{
+				base.HandleException(e);
+			}
+		}
+
+		#endregion Initialisierung
+
+		#region Vom Windows Form-Designer generierter Code
+
+		/// <summary>
+		/// Erforderliche Methode für die Designerunterstützung. 
+		/// Der Inhalt der Methode darf nicht mit dem Code-Editor geändert werden.
+		/// </summary>
+		private void InitializeComponent()
+		{
+			this.cbo<%=entityname%> = new System.Windows.Forms.ComboBox();
+			this.lbl<%=entityname%> = new System.Windows.Forms.Label();
+			this.txt<%=entityname%> = new System.Windows.Forms.TextBox();
+			this.SuspendLayout();
+			// 
+			// cbo<%=entityname%>_Id
+			// 
+			this.cbo<%=entityname%>.Location = new System.Drawing.Point(125, 0);
+			this.cbo<%=entityname%>.Name = "cbo<%=entityname%>";
+			this.cbo<%=entityname%>.Size = new System.Drawing.Size(170, 23);
+			this.cbo<%=entityname%>.TabIndex = 1;
+			this.cbo<%=entityname%>.SelectedIndexChanged += new System.EventHandler(this.cbo<%=entityname%>_SelectedIndexChanged);
+			// 
+			// lbl<%=entityname%>
+			// 
+			this.lbl<%=entityname%>.Location = new System.Drawing.Point(0, 0);
+			this.lbl<%=entityname%>.Name = "lbl<%=entityname%>";
+			this.lbl<%=entityname%>.Size = new System.Drawing.Size(125, 23);
+			this.lbl<%=entityname%>.TabIndex = 0;
+			this.lbl<%=entityname%>.Text = "<%=entityname%>";
+			this.lbl<%=entityname%>.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+			// 
+			// txt<%=entityname%>
+			// 
+			this.txt<%=entityname%>.AutoSize = false;
+			this.txt<%=entityname%>.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((System.Byte)(0)));
+			this.txt<%=entityname%>.Location = new System.Drawing.Point(125, 0);
+			this.txt<%=entityname%>.MaxLength = 10;
+			this.txt<%=entityname%>.Name = "txt<%=entityname%>";
+			this.txt<%=entityname%>.Size = new System.Drawing.Size(150, 23);
+			this.txt<%=entityname%>.TabIndex = 2;
+			this.txt<%=entityname%>.Text = "";
+			// 
+			// <%=classname%>
+			// 
+			this.BackColor = System.Drawing.Color.FromArgb(((System.Byte)(150)), ((System.Byte)(176)), ((System.Byte)(193)));
+			this.Controls.Add(this.txt<%=entityname%>);
+			this.Controls.Add(this.cbo<%=entityname%>);
+			this.Controls.Add(this.lbl<%=entityname%>);
+			this.Name = "<%=classname%>";
+			this.Size = new System.Drawing.Size(295, 23);
+			this.ResumeLayout(false);
+
+		}
+
+		#endregion
+
+		#region Property-Methoden 
+
+		/// <summary>
+		/// Die ID der Entitaet <%=info.ObjectName%>.
+		/// </summary>
+		[Browsable(false)]
+		public virtual string <%=entityname%>_Id
+		{
+			get
+			{
+				string <%=entityname%>_Id = string.Empty;
+				if(cbo<%=entityname%>.Text.Length > 0)
+				{
+					<%=entityname%>_Id = cbo<%=entityname%>.SelectedValue.ToString();
+				}
+				return <%=entityname%>_Id;
+			}
+			set
+			{
+				if(value != string.Empty)
+				{
+					SetComboboxItem(value);
+					txt<%=entityname%>.Text = cbo<%=entityname%>.Text;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Gibt die Bezeichnung der Entität <%=info.ObjectName%> zurück.
+		/// </summary>
+		[Browsable(false)]
+		public virtual string <%=entityname%>
+		{
+			get
+			{
+				string bez = string.Empty;
+				if(cbo<%=entityname%>.Text.Length > 0)
+				{
+					bez = cbo<%=entityname%>.Text;
+				}
+				return bez;
+			}
+		}
+
+		/// <summary>
+		/// Die Kennung der Entitaet <%=info.ObjectName%>.
+		/// </summary>
+		[Browsable(false)]
+		public virtual string Kennung
+		{
+			get
+			{
+				string kennung = string.Empty;
+				if(cbo<%=entityname%>.Text.Length > 0)
+				{
+					kennung = Get<%=entityname%>Kennung(cbo<%=entityname%>.SelectedValue.ToString());
+				}
+				return kennung;
+			}
+			set
+			{
+				if(value != string.Empty)
+				{
+					Set<%=entityname%>Kennung(value);
+					txt<%=entityname%>.Text = cbo<%=entityname%>.Text;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Setzt die Breite des Labels
+		/// </summary>
+		[Category("Layout"), 
+		 DefaultValue(125), 
+		 RefreshProperties(RefreshProperties.Repaint), 
+		 Description("Die Breite des Labels")]
+		public virtual int LabelWidth
+		{
+			get{ return lbl<%=entityname%>.Width; }
+			set
+			{
+				this.Width = this.Width - lbl<%=entityname%>.Width + value;
+				lbl<%=entityname%>.Width      = value;
+				Point loc = cbo<%=entityname%>.Location;
+				loc.X = value;
+				cbo<%=entityname%>.Location = loc;
+				loc = txt<%=entityname%>.Location;
+				loc.X = value;
+				txt<%=entityname%>.Location= loc;
+			}
+		}
+
+<%
+		output.preserve("Individuelle Property-Methoden");
+%>
+		#endregion Property-Methoden
+
+		#region Öffentliche Methoden
+
+		/// <summary>
+		/// Setzt die Anzeige wieder auf leere Felder zurück.
+		/// </summary>
+		public virtual void ResetDisplay()
+		{
+			if(true == cbo<%=entityname%>.Visible)
+			{
+				cbo<%=entityname%>.SelectedIndex = -1;
+				cbo<%=entityname%>.SelectedItem = null;
+				cbo<%=entityname%>.Text = String.Empty;
+			}
+
+			if(true == txt<%=entityname%>.Visible)
+			{
+				txt<%=entityname%>.Text = String.Empty;
+			}
+		}
+
+
+		/// <summary>
+		/// Setzt den Focus auf das Hauptfeld des UserControls.
+		/// </summary>
+		public virtual void SetFocus()
+		{
+			if(true == cbo<%=entityname%>.Visible)
+			{
+				cbo<%=entityname%>.Focus();
+			}
+
+			if(true == txt<%=entityname%>.Visible)
+			{
+				txt<%=entityname%>.Focus();
+			}
+		}
+
+		/// <summary>
+		/// Setzt den Anzeigemodus des UserCotnrols.
+		/// </summary>
+		/// <param name="pMode">Der Anzeigemodus</param>
+		public void SetDialogMode(DialogModes pMode)
+		{
+			this.DialogMode = pMode;
+			InitControls();
+		}
+
+<%
+		output.preserve("Individuelle öffentliche Methoden");
+%>
+		#endregion Öffentliche Methoden
+
+		#region private Methoden
+
+		/// <summary>
+		/// Initialisierung der Steuerelemente / Felder aktivieren/deaktivieren
+		/// </summary>
+		private void InitControls()
+		{
+			this.BackColor = Globals.GetInstance().FormBackColor;
+
+			switch(base.DialogMode)
+			{
+				case DialogModes.Show:
+					DisableEntryFields();
+					cbo<%=entityname%>.Visible = false;
+					txt<%=entityname%>.Visible = true;
+					break;
+				default:
+					EnableEntryFields();
+					txt<%=entityname%>.Visible = false;
+					cbo<%=entityname%>.Visible = true;
+					break;
+			}
+		}
+
+		/// <summary>
+		/// Aktivieren der Eingabefelder.
+		/// </summary>
+		private void EnableEntryFields()
+		{
+			base.EnableEntryField(txt<%=entityname%>);
+			base.EnableEntryField(cbo<%=entityname%>);
+		}
+
+		/// <summary>
+		/// Deaktivieren der Eingabefelder.
+		/// </summary>
+		private void DisableEntryFields()
+		{
+			base.DisableEntryField(txt<%=entityname%>);
+			base.DisableEntryField(cbo<%=entityname%>);
+		}
+
+		/// <summary>
+		/// Lädt List of Value für die Entitaet <%=info.ObjectName%>.
+		/// </summary>
+		private void LoadListOfValues()
+		{
+			try
+			{
+				IListOfValuesService service = (IListOfValuesService)RemoteServiceFactory.Instance.GetService(RemoteServices.ListOfValuesService);
+
+				ArrayList lov = service.GetListOfValues(ClientContext.Instance, "<%=entityname%>OrderBySort<%=entityname%>LOV", "<%=entityname%>");
+				if(lov.Count > 0)
+				{
+					// leeren Eintrag hinzufügen
+					LovItem emptyItem = new LovItem(Guid.Empty.ToString(), "");
+					lov.Insert(0, emptyItem);
+					cbo<%=entityname%>.DataSource = lov;
+					cbo<%=entityname%>.DisplayMember = "ItemValue";
+					cbo<%=entityname%>.ValueMember = "IdAsGuid";
+				}
+			}
+			catch(Exception e)
+			{
+				base.HandleException(e);
+			}
+		}
+
+		/// <summary>
+		/// Liest die Kennung der Entitaet <%=info.ObjectName%> anhand 
+		/// der selektierten Id in der LOV von der Datenbank nach.
+		/// </summary>
+		private string Get<%=entityname%>Kennung(string pPrimaryKey)
+		{
+			string kennung = string.Empty;
+			try
+			{
+				// Zugriff auf die Datenbank
+				base.Data = mService.Get<%=entityname%>ById(ClientContext.Instance, pPrimaryKey);
+
+				if(base.Data.Tables.Contains(<%=entityname%>ColDefs.TBL_<%=entitynameUpper%>_BY_ID_DATA))
+				{
+					DataTable tab = base.Data.Tables[<%=entityname%>ColDefs.TBL_<%=entitynameUpper%>_BY_ID_DATA];
+					DataRow row = tab.Rows[0];
+					kennung = row[<%=entityname%>ColDefs.KENNUNG].ToString();
+				}
+
+			}
+			catch(Exception e)
+			{
+				base.HandleException(e);
+			}
+			return kennung;
+		}
+
+		/// <summary>
+		/// Setzt die Combobox auf einen bestimmten Eintrag der Werteliste anhand der Spalte KENNUNG.
+		/// </summary>
+		/// <param name="pKennung"></param>
+		public void Set<%=entityname%>Kennung(string pKennung)
+		{
+			<%=entityname%>Parameter prm = new <%=entityname%>Parameter();
+			prm.Kennung = pKennung;
+			try
+			{
+				// Zugriff auf die Datenbank
+				base.Data = mService.Get<%=entityname%>ByParam(ClientContext.Instance, prm);
+
+				if(base.Data.Tables.Contains(<%=entityname%>ColDefs.TBL_<%=entitynameUpper%>_LIST_DATA))
+				{
+					DataTable tab = base.Data.Tables[<%=entityname%>ColDefs.TBL_<%=entitynameUpper%>_LIST_DATA];
+					if(tab.Rows.Count > 0)
+					{
+						DataRow row = tab.Rows[0];
+						SetComboboxItem(Convert.ToString(row[<%=entityname%>ColDefs.<%=entitynameUpper%>_ID]));
+					}
+				}
+			}
+			catch(Exception e)
+			{
+				base.HandleException(e);
+			}
+		}
+
+		/// <summary>
+		/// Setzt die Combobox auf einen bestimmten Eintrag der Werteliste an Hand der GUID.
+		/// </summary>
+		/// <param name="pId">Die GUID des Eintrags</param>
+		private void SetComboboxItem(string pId)
+		{
+			foreach(LovItem item in cbo<%=entityname%>.Items)
+			{
+				if(item.Id.ToLower().Equals(pId.ToLower()))
+				{
+					int index = cbo<%=entityname%>.FindString(item.ItemValue);
+					cbo<%=entityname%>.SelectedIndex = index;
+					break;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Löst das SelectedIndexChanged-Event aus.
+		/// </summary>
+		/// <param name="e"></param>
+		protected void OnSelectedIndexChanged(EventArgs e)
+		{
+			if(null != SelectedIndexChanged)
+			{
+				SelectedIndexChanged(this, e);
+			}
+		}
+
+<%
+		output.preserve("Individuelle private Methoden");
+%>
+		#endregion private Methoden
+
+		#region Events von Benutzersteuerelementen
+
+		private void cbo<%=entityname%>_SelectedIndexChanged(object sender, System.EventArgs e)
+		{
+			OnSelectedIndexChanged(e);
+		}
+
+		#endregion Events von Benutzersteuerelementen
+	}
+}<%
+			output.save(filename, false);
+      output.clear();	
+		}
+		// Logging
+		output.clear();
+		output.writeln("Generierung ComboBox-User-Controls erfolgreich beendet...");
+		output.writeln("");
+		output.writeln("Ausgabeverzeichnis = " + input["TargetPath"]);
+		output.writeln("");
+		output.writeln("Folgende Dateien wurden generiert:" );
+		output.writeln("");
+		foreach(string csFile in csFiles)
+		{
+		    output.writeln(csFile);
+		}
+		output.writeln("");
+		output.writeln("==> Ende <==");
+		output.writeln("");
+		string logname = input["TargetPath"].ToString();
+		if (!logname.EndsWith("\\") ) logname += "\\";
+		logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+		output.append(logname);
+		output.clear();
+		MyMeta.SaveUserMetaData();
+	}
+
+}
+%>
+##|BODY_END

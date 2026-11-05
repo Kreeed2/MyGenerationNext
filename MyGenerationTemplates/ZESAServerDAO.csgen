@@ -1,0 +1,2143 @@
+﻿##|TYPE Template
+##|UNIQUEID 43d7c53b-a23e-46bb-8123-7c93a6b96b3d
+##|TITLE ZesaServerDAO
+##|NAMESPACE 
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE None
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll %>
+<%#NAMESPACE System, System.Text, System.Collections,System.Collections.Generic, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+		input["FunctionGenInfoData"] = ui.FunctionGenInfoData;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using System.Collections.Generic;
+using EHA.ZESA.Util.GeneratorUI;
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	private const string MANDANT       = "MANDANT";
+	private const string BUCHUNGSKREIS = "BUCHUNGSKREIS";
+	private const string SICHTBARKEIT  = "SICHTBARKEITSGRUPPE_ID";
+	private const string EXT_DATENGRUPPE = "EXT_DATENGRUPPE_ID";
+	private const string SORTIERUNG    = "SORTIERUNG";
+	private const string GELOESCHT     = "GELOESCHT";
+	private const string TYPE_TABLE    = "Table";
+	private const string TABLE_NAME_HISTORIENBELEG = "HISTORIENBELEG";
+	private const string VERSION_NUM = "VERSION_NUM";
+	private const string UPDDATE = "UPDDATE";
+	private const string INSDATE = "INSDATE";
+	private const string INSUSER = "INSUSER";
+	private const string UPDUSER = "UPDUSER";
+
+	// Flag, welches gesetzt wird, wenn wenigstens eine NORMTIME-Spalte gefunden wurde. 
+	// Hilft, Compilerwarnungen wg. ungenutzter Funktionen zu vermeiden.
+	bool normtimeColumnFound = false;
+	
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+		if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		ArrayList data = input["Data"] as ArrayList;
+		ArrayList functionGenInfoData = input["FunctionGenInfoData"] as ArrayList;
+		ArrayList csFiles = new ArrayList();
+		string filepath;
+		Dictionary<string,string> dbReaderDatatypeColumns;
+
+		foreach(GenInfo info in data)
+		{
+			IColumns cols = null;
+			string entityname = string.Empty;
+			string entitynameUpper = string.Empty;
+			FunctionGenInfo functionGenInfo = null;
+			
+			// übersteuernde Kriterien aufbauen
+			dbReaderDatatypeColumns = GeneratorHelper.GetDbReaderDatatypeColumns(info);
+			
+			// Differenzen zwischen ITable und IView eliminieren
+			if(TYPE_TABLE == info.ObjectType)
+			{
+				ITable table = MyMeta.DefaultDatabase.Tables[info.ObjectName];
+				cols = table.Columns;
+				entityname = GeneratorHelper.ConvertName(info.EntityName);
+				entitynameUpper = info.EntityName;
+			}
+			else if(info.ObjectType == "View")
+
+			{
+				IView view = MyMeta.DefaultDatabase.Views[info.ObjectName];
+				cols = view.Columns;
+				entityname = GeneratorHelper.ConvertName(info.ObjectName);
+				entitynameUpper = info.ObjectName;
+			}
+			else if(info.ObjectType == "Function")
+			{
+				entityname = GeneratorHelper.ConvertName(info.ObjectName);
+				entitynameUpper = info.ObjectName;
+				foreach(FunctionGenInfo funcInfo in functionGenInfoData)
+				{
+					if(funcInfo.FunctionName == info.ObjectName)
+					{
+						functionGenInfo = funcInfo;
+					}
+				}
+			}
+
+			// Prüfen, ob Tabelle die Spalten enthält, welche für die weitere Verarbeitung relevant sind.
+			bool hasMandant       = CheckForMandantColumn(cols, functionGenInfo);
+			bool hasBuchungskreis = CheckForBuchungskreisColumn(cols, functionGenInfo);
+			bool isVertrag        = CheckForSichtbarkeitColumn(cols, functionGenInfo);
+			bool hasExtDatengruppe = CheckForExtDatengruppeColumn(cols, functionGenInfo);
+			bool hasSortierung		 = CheckForSortierungColumn(cols, functionGenInfo);
+			bool hasGeloescht		 = CheckForGeloeschtColumn(cols, functionGenInfo);
+			bool hasVersionNum		 = CheckForVersionNumColumn(cols, functionGenInfo);
+						
+			// Fuer den Historienbeleg wird (derzeit) nicht auf die Sichtbarkeitsgruppe eingeschraenkt.
+			if(isVertrag && (TABLE_NAME_HISTORIENBELEG == entityname.ToUpper()))
+			{
+				isVertrag = false;
+				hasExtDatengruppe = false;
+			}
+			
+			// Klassennamen bilden
+			string classname     = entityname;
+			string fullClassname = "EHA.ZESA.Server.DAO." + info.Namespace + "." + classname;
+			string fileNameInProject = "DAO\\" + info.Namespace + "\\" + classname + ".cs";
+			
+			// Dateinamen bilden
+			filepath = input["TargetPath"].ToString();
+			if (!filepath.EndsWith("\\") ) filepath += "\\";
+			string filePathProjectFile = filepath + "Server\\ZESAServer\\ZESAServer.csproj";
+			filepath += "Server\\ZESAServer\\DAO\\" + info.Namespace + "\\";
+			
+			// Verzeichnis bei Bedarf anlegen
+			if(!Directory.Exists(filepath))
+			{
+				Directory.CreateDirectory(filepath);
+			}
+			string filename  = filepath + entityname + ".cs";
+			
+			// File ausschecken
+			TfsHelper.Instance.CheckOut(filename);
+			
+			// Dateinamen für Logging zwischenspeichern
+			csFiles.Add(fullClassname);
+			
+			// Markierung für geschützten Bereich im Source definieren
+			output.setPreserveSource(filename, "/***", "***/");
+%>using System;
+using System.Collections;
+using System.Data;
+<%if(!hasVersionNum && TYPE_TABLE == info.ObjectType){%>using EHA.ZESA.Communication.RemotingServiceInterface.Allgemein;<%}%>
+using EHA.ZESA.Communication.RemotingServiceInterface.Allgemein.ClientContext;
+using EHA.ZESA.Communication.RemotingServiceInterface.DAO.Allgemein;
+using EHA.ZESA.Communication.RemotingServiceInterface.DAO.<%=info.Namespace%>.<%=entityname%>;
+using EHA.ZESA.Communication.RemotingServiceInterface.Exceptions;
+using EHA.ZESA.Communication.RemotingServiceInterface.Exceptions.DAO;
+using EHA.ZESA.Components.DbReader;
+<%if(!hasVersionNum && TYPE_TABLE == info.ObjectType){%>using EHA.ZESA.Components.DbWriter;<%}%>
+<%if(TYPE_TABLE == info.ObjectType){%>using EHA.ZESA.Components.DbWriter.Exceptions;<%}%>
+using EHA.ZESA.Components.ErrorHandling;
+using EHA.ZESA.Components.Log4NetWrapper;
+using EHA.ZESA.Server.Allgemein;
+using EHA.ZESA.Server.DAO.Allgemein;
+
+<% output.preserve("Individuelle_Usings");%>
+
+namespace EHA.ZESA.Server.DAO.<%=info.Namespace%>
+{
+	/// <summary>
+	/// Datenzugriffslogik und einfache Prüfungen für die Entität <%=info.ObjectName%>.
+	/// </summary>
+	/// <remarks>
+	/// <para><b>Historie</b></para>
+	/// <div class="tablediv">
+	/// <table class="dtTABLE" cellspacing="0">
+	///		<tr>
+	///			<th width="20%">Autor</th>
+	///			<th width="20%">Datum</th>
+	///			<th width="60%">Bemerkungen</th>
+	///		</tr>
+	///		<tr>
+	///			<td width="20%">MyGeneration</td>
+	///			<td width="20%"><%=DateTime.Now.ToString()%></td>
+	///			<td width="60%">Erstellt</td>
+	///		</tr>
+	/// </table>
+	/// </div>
+	/// </remarks>
+	public class <%=classname%> : BaseServerDAO
+	{
+		#region Member-Variablen
+
+<%if(info.ObjectType == "Function")
+{
+	OutputAttributes(functionGenInfo, dbReaderDatatypeColumns);
+}
+else
+{
+	OutputAttributes(cols, dbReaderDatatypeColumns);
+}%>
+<%if(!hasVersionNum && TYPE_TABLE == info.ObjectType){%>
+		private const string ADP_<%=entitynameUpper%> = "<%=entityname%>";
+		private const string DEL_<%=entitynameUpper%> = "Delete<%=entityname%>";
+<%}%>
+		/// <summary>
+		/// Eine Hilfsliste mit allen zu normierenden VON Spalten
+		/// </summary>
+		protected static ArrayList NormalizeFromDateTimes = new ArrayList
+		{<%		// Aufruf der Funktion zum Normalisieren der Datumsformate.
+				// Normalisiert wird dabei wie folgt: von-Zeiten werden zu 00:00; bis-Zeiten werden zu 23:59.
+				if(info.NormTimeFrom == true) 
+				{
+					ArrayList normFromColumns = GetNormTimeColumns( info.NormTimeFromColumns);
+					foreach(string fromColumn in normFromColumns)
+					{%>
+			<%=entityname%>DAO.<%=fromColumn%>,<%}
+				}%>					
+		}; 
+		
+		/// <summary>
+		/// Eine Hilfsliste mit allen zu normierenden BIS Spalten
+		/// </summary>
+		protected static ArrayList NormalizeToDateTimes = new ArrayList
+		{<%		// Aufruf der Funktion zum Normalisieren der Datumsformate.
+				// Normalisiert wird dabei wie folgt: von-Zeiten werden zu 00:00; bis-Zeiten werden zu 23:59.
+				if(info.NormTimeTo == true) 
+				{ 
+					ArrayList normToColumns = GetNormTimeColumns( info.NormTimeToColumns);
+					foreach(string toColumn in normToColumns)
+					{%>
+			<%=entityname%>DAO.<%=toColumn%>,<%}
+				}%>					
+		}; 
+
+		/// <summary>
+		/// Der Logger dieser Instanz
+		/// </summary>
+		protected static readonly Logger mLog = new Logger(typeof(<%=classname%>));
+		
+		#endregion Member-Variablen
+
+		#region Individuelle Member-Variablen
+
+<% output.preserve("Individuelle_Member_Variablen");%>
+
+		#endregion Individuelle Member-Variablen
+
+		#region Konstruktoren
+
+		/// <summary>
+		/// Standard-Konstruktor.
+		/// </summary>
+		public <%=classname%>()
+		{
+			TableDataName = "TD_<%=classname%>_List";
+            TableStatName = "TS_<%=classname%>_List";
+            TableColName = "TC_<%=classname%>_List";
+		    QRY_LIST = "<%=classname%>_List";
+		    BUSINESS_OBJECT_NAME = "<%=classname%>";
+            TVP_IDS = "TT_<%=info.ObjectName%>";
+            PROC_NAME = "P_InsUpdDel_<%=info.ObjectName%>";
+            TBL_NAME = "<%=info.ObjectName%>";
+<%if(!hasVersionNum && TYPE_TABLE == info.ObjectType){%>
+			ADP = "<%=entityname%>";
+			DEL = "Delete<%=entityname%>";
+<%}%>
+			mLog.Init(true);
+		}
+
+		#endregion Konstruktoren
+
+		#region Initialisierung
+
+		#endregion Initialisierung
+
+		#region Property-Methoden 
+
+		#endregion Property-Methoden
+
+		#region Öffentliche Methoden
+
+		/// <summary>
+        /// Liefert ein leeres DAO, welches lediglich die zu Grunde liegende Struktur enthält, aber keinerlei Daten.
+        /// Die aktuelle Zeile ist -1.
+        /// </summary>
+        /// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+        /// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+        /// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+        /// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+        /// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellen- / Viewname nicht im gekapselten DataSet existiert.</exception>
+        /// <returns>Ein leeres DAO mit zu Grunde liegenden Strukturinformationen.</returns>
+        /// <remarks>Das DAO ist leer. Bevor es für Datenbankoperationen (Update et cetera) verwendet werden kann, sind ihm Daten hinzuzufügen.</remarks>
+        public new <%=entityname%>DAO GetEmptyStructure(ClientContext pContext)
+        {
+            return (<%=entityname%>DAO)base.GetEmptyStructure(pContext);
+        }
+		
+		/// <summary>
+		/// Liefert die ID der Querydefinition aus der DbReader.config.
+		/// Diese kann verwendet werden, um den DbReader bezüglich dieser Anfrage möglichst individuell zu konfigurieren.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" /> für Datenbankanfragen.</param>
+		/// <returns>Die ID der Query aus der DbReader.config.</returns>
+		/// <remarks>
+		///   <seealso cref="DbReaderHelper.SetDbParameter(string, string, string)" />
+		/// </remarks>
+		/// <example>
+		/// <%=entityname%>DAO prmDao = new <%=entityname%>DAO();
+		/// string qryResultId = new <%=entityname%>().GetQueryId( pContext);
+		/// new <%=entityname%>().ExecuteQueryReadData( pContext, qryResultId, prmDao);
+		/// </example>
+		public string GetQueryId(ClientContext pContext)
+		{
+			return DbReaderHelper.Instance.GetQueryId( pContext, QRY_LIST);
+		}
+
+		/// <summary>
+        /// Liefert ClientDAO vom Typ <%=entityname%>
+        /// </summary>
+        /// <returns>Ein ClientDAO vom Typ <%=entityname%>.</returns>
+		protected override BaseVerifiedClientDAO GetTypedDAO()
+	    {
+	        return new <%=entityname%>DAO();
+	    }
+		
+		/// <summary>
+        /// Liefert den Logger dieser Instanz
+        /// </summary>
+        /// <returns>Ein Logger dieser Instanz.</returns>
+		protected override Logger GetLogger()
+	    {
+	        return mLog;
+	    }
+		
+		/// <summary>
+		/// Liest eine Liste aller vorhandenen Datensätze der Tabelle <%=info.ObjectName%>
+		/// ohne Begrenzung der zurückgelieferten Datensätze.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" /></param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		public <%=entityname%>DAO GetListAll(ClientContext pContext)
+		{
+			return GetListAll(pContext, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest eine Liste aller vorhandenen Datensätze der Tabelle <%=info.ObjectName%>
+		/// ohne Begrenzung der zurückgelieferten Datensätze.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" /></param>
+		/// <param name="pTransactionId">Die Transaktions-ID für Datenbankzugriffe.</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		public <%=entityname%>DAO GetListAll(ClientContext pContext, Guid pTransactionId)
+		{
+<%if (info.UsesOldDataSetLogic){
+%>			return (<%=entityname%>DAO)GetListDao(pContext, pTransactionId, true);
+		}
+
+		/// <summary>
+		/// Liest eine Liste aller vorhandenen Datensätze der Tabelle <%=info.ObjectName%>
+		/// ohne Begrenzung der zurückgelieferten Datensätze.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" /></param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>
+		/// Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public DataSet Get<%=entityname%>ListAll(ClientContext pContext)
+		{
+			return Get<%=entityname%>ListAll(pContext, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest eine Liste aller vorhandenen Datensätze der Tabelle <%=info.ObjectName%>
+		/// ohne Begrenzung der zurückgelieferten Datensätze.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pTransactionId">Die Id der aktuell laufenden Transaktion</param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		public DataSet Get<%=entityname%>ListAll(ClientContext pContext, Guid pTransactionId)
+		{<%}%>
+<%if (info.UsesOldDataSetLogic){
+%>			return GetListDs(pContext, pTransactionId, true);<%
+}else{
+%>			return (<%=entityname%>DAO)GetListDao(pContext, pTransactionId, true);<%
+}%>
+		}
+
+		/// <summary>
+		/// Liest eine Liste aller vorhandenen Datensätze der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" /></param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		public <%=entityname%>DAO GetList(ClientContext pContext)
+		{
+			return GetList(pContext, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest eine Liste aller vorhandenen Datensätze der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" /></param>
+		/// <param name="pTransactionId">Die Transaktions-ID für Datenbankzugriffe.</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		public <%=entityname%>DAO GetList(ClientContext pContext, Guid pTransactionId)
+		{
+<%if (info.UsesOldDataSetLogic){
+%>			return (<%=entityname%>DAO)GetListDao(pContext, pTransactionId, false);
+		}
+
+		/// <summary>
+		/// Liest eine Liste aller vorhandenen Datensätze der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" /></param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>
+		/// Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public DataSet Get<%=entityname%>List(ClientContext pContext)
+		{
+			return Get<%=entityname%>List(pContext, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest eine Liste aller vorhandenen Datensätze der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pTransactionId">Die Id der aktuell laufenden Transaktion</param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		public DataSet Get<%=entityname%>List(ClientContext pContext, Guid pTransactionId)
+		{<%}%>
+<%if (info.UsesOldDataSetLogic){
+%>			return GetListDs(pContext, pTransactionId, false);<%
+}else{
+%>			return (<%=entityname%>DAO)GetListDao(pContext, pTransactionId, false);<%
+}%>
+		}
+<%
+		// GetxxxById ist nur für Tabellen zulässig, da Views keinen PrimaryKey besitzen
+		if(TYPE_TABLE == info.ObjectType)
+		{
+%>
+		/// <summary>
+		/// Liest einen Datensatz der Tabelle <%=info.ObjectName%> über den Primärschlüssel.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pId">Der Primärschlüssel des gesuchten Datensatzes.</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="InvalidParameterException">Wird geworfen, wenn ein ungültiger Primary-Key übergeben wurde.</exception>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		public <%=entityname%>DAO GetById(ClientContext pContext, string pId)
+		{
+			return GetById(pContext, pId, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest einen Datensatz der Tabelle <%=info.ObjectName%> über den Primärschlüssel.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pId">Der Primärschlüssel des gesuchten Datensatzes.</param>
+		/// <param name="pTransactionId">Die Id der aktuell laufenden Transaktion</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="InvalidParameterException">Wird geworfen, wenn ein ungültiger Primary-Key übergeben wurde.</exception>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		public <%=entityname%>DAO GetById(ClientContext pContext, string pId, Guid pTransactionId)
+		{
+			return (<%=entityname%>DAO)GetByIdDao(pContext, pId, pTransactionId);
+		}
+
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Liest einen Datensatz der Tabelle <%=info.ObjectName%> über den Primärschlüssel.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pId">Der Primärschlüssel des gesuchten Datensatzes.</param>
+		/// <returns>Eine Dataset-Instanz mit dem gelesenen Datensatz.</returns>
+		/// <exception cref="InvalidParameterException">Wird geworfen, wenn ein ungültiger Primary-Key übergeben wurde.</exception>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		public DataSet Get<%=entityname%>ById(ClientContext pContext, string pId)
+		{
+			return Get<%=entityname%>ById(pContext, pId, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest einen Datensatz der Tabelle <%=info.ObjectName%> über den Primärschlüssel.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pId">Der Primärschlüssel des gesuchten Datensatzes.</param>
+		/// <param name="pTransactionId">Die Id der aktuell laufenden Transaktion</param>
+		/// <returns>Eine Dataset-Instanz mit dem gelesenen Datensatz.</returns>
+		/// <exception cref="InvalidParameterException">Wird geworfen, wenn ein ungültiger Primary-Key übergeben wurde.</exception>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		public DataSet Get<%=entityname%>ById(ClientContext pContext, string pId, Guid pTransactionId)
+		{
+			return GetByIdDs(pContext, pId, pTransactionId);
+		}
+<%}} // Ende Tabellenspezifischer Code%>
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>
+		/// ohne Begrenzung der zurückgelieferten Datensätze.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Ein <see cref="<%=entityname%>DAO" /> mit den Parameterwerten.</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <exception cref="DAOInvalidCurrentRowException">Wird geworfen, wenn pCurrentRow größer als die Anzahl Datensätze in der Tabelle ist.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der im <see cref="<%=entityname%>DAO" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public <%=entityname%>DAO GetByParamAll(ClientContext pContext, <%=entityname%>DAO pParams)
+		{
+			return GetByParamAll(pContext, pParams, null, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>
+		/// ohne Begrenzung der zurückgelieferten Datensätze.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Ein <see cref="<%=entityname%>DAO" /> mit den Parameterwerten.</param>
+		/// <param name="pTransactionId">Die Id der aktuell laufenden Transaktion</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <exception cref="DAOInvalidCurrentRowException">Wird geworfen, wenn pCurrentRow größer als die Anzahl Datensätze in der Tabelle ist.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der im <see cref="<%=entityname%>DAO" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public <%=entityname%>DAO GetByParamAll(ClientContext pContext, <%=entityname%>DAO pParams, Guid pTransactionId)
+		{
+			return GetByParamAll(pContext, pParams, null, pTransactionId);
+		}
+
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>
+		/// ohne Begrenzung der zurückgelieferten Datensätze.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Ein <see cref="<%=entityname%>DAO" /> mit den Parameterwerten.</param>
+		/// <param name="pOrderList">Eine Liste von Spaltennamen, nach denen sortiert werden soll.</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <exception cref="DAOInvalidCurrentRowException">Wird geworfen, wenn pCurrentRow größer als die Anzahl Datensätze in der Tabelle ist.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der im <see cref="<%=entityname%>DAO" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public <%=entityname%>DAO GetByParamAll(ClientContext pContext, <%=entityname%>DAO pParams, ArrayList pOrderList)
+		{
+			return GetByParamAll(pContext, pParams, pOrderList, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>
+		/// ohne Begrenzung der zurückgelieferten Datensätze.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Ein <see cref="<%=entityname%>DAO" /> mit den Parameterwerten.</param>
+		/// <param name="pOrderList">Eine Liste von Spaltennamen, nach denen sortiert werden soll.</param>
+		/// <param name="pTransactionId">Die Id der aktuell laufenden Transaktion</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <exception cref="DAOInvalidCurrentRowException">Wird geworfen, wenn pCurrentRow größer als die Anzahl Datensätze in der Tabelle ist.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der im <see cref="<%=entityname%>DAO" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// Die Sortierung erfolgt immer aufsteigend nach den in der ArrayList übergebenen Spaltennamen.
+		/// </remarks>
+		public <%=entityname%>DAO GetByParamAll(ClientContext pContext, <%=entityname%>DAO pParams, ArrayList pOrderList, Guid pTransactionId)
+		{
+			return (<%=entityname%>DAO)GetByParamDao(pContext, pParams, pOrderList, pTransactionId, true);
+		}
+
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>
+		/// ohne Begrenzung der zurückgelieferten Datensätze.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Eine <see cref="<%=entityname%>Parameter" />-Struktur mit den Parameterwerten.</param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der in der Struktur <see cref="<%=entityname%>Parameter" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public DataSet Get<%=entityname%>ByParamAll(ClientContext pContext, <%=entityname%>Parameter pParams)
+		{
+			return Get<%=entityname%>ByParamAll(pContext, pParams, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>
+		/// ohne Begrenzung der zurückgelieferten Datensätze.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Eine <see cref="<%=entityname%>Parameter" />-Struktur mit den Parameterwerten.</param>
+		/// <param name="pTransactionId">Die Id der aktuell laufenden Transaktion</param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der in der Struktur <see cref="<%=entityname%>Parameter" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public DataSet Get<%=entityname%>ByParamAll(ClientContext pContext, <%=entityname%>Parameter pParams, Guid pTransactionId)
+		{
+			return Get<%=entityname%>ByParamAll(pContext, pParams, null, pTransactionId);
+		}
+
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>
+		/// ohne Begrenzung der zurückgelieferten Datensätze.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Eine <see cref="<%=entityname%>Parameter" />-Struktur mit den Parameterwerten.</param>
+		/// <param name="pOrderList">Eine Liste von Spaltennamen, nach denen sortiert werden soll.</param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der in der Struktur <see cref="<%=entityname%>Parameter" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public DataSet Get<%=entityname%>ByParamAll(ClientContext pContext, <%=entityname%>Parameter pParams, ArrayList pOrderList)
+		{
+			return Get<%=entityname%>ByParamAll(pContext, pParams, pOrderList, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>
+		/// ohne Begrenzung der zurückgelieferten Datensätze.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Eine <see cref="<%=entityname%>Parameter" />-Struktur mit den Parameterwerten.</param>
+		/// <param name="pOrderList">Eine Liste von Spaltennamen, nach denen sortiert werden soll.</param>
+		/// <param name="pTransactionId">Die Id der aktuell laufenden Transaktion</param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der in der Struktur <see cref="<%=entityname%>Parameter" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// Die Sortierung erfolgt immer aufsteigend nach den in der ArrayList übergebenen Spaltennamen.
+		/// </remarks>
+		public DataSet Get<%=entityname%>ByParamAll(ClientContext pContext, <%=entityname%>Parameter pParams, ArrayList pOrderList, Guid pTransactionId)
+		{
+			try
+			{
+				string qryResultId = DbReaderHelper.Instance.GetQueryId(pContext, QRY_LIST);
+	
+				SetDbParameters(qryResultId, pParams);
+<%	if(hasMandant) 
+		{
+%>				SetDbParameterMandant(pContext, qryResultId, pParams);
+<%	}
+		if(hasBuchungskreis) 
+		{
+%>				SetDbParameterBuchungskreis(pContext, qryResultId, pParams);
+<%	}
+		if(isVertrag) 
+		{
+%>				SetDbParameterSichtbarkeit(pContext, qryResultId);
+<%	}
+		if(hasExtDatengruppe)
+		{
+%>				SetDbParameterExtDatengruppe( pContext, qryResultId);
+		<%}%>
+				if(null != pOrderList)
+				{
+					DbReaderHelper.Instance.SetOrder(qryResultId, pOrderList);
+				}
+	
+				// im DBReader die Einstellung "ApplicationMaxRecords" auf "Unlimited" setzen
+				// Datensatzbeschränkung wird damit temporär aufgehoben
+				DbReaderHelper.Instance.SetQueryResultCount(qryResultId, Globals.GET_UNLIMITED_RECORDS);
+				if (mLog.IsDebugEnabled)
+				{
+					string test = DbReader.GetInstance().CheckQuerySyntax(qryResultId);
+					mLog.Debug("Get<%=entityname%>ByParam Sql for Context " + pContext + ": \n" + test);
+				}
+				DataSet data = DbReaderHelper.Instance.ReadData(pContext, qryResultId, pTransactionId);
+				return data;
+			}
+			catch( ValidationException)
+			{
+				throw;
+			}
+			catch(BaseApplicationException e)
+			{
+				throw new ExecuteQueryFailedException(e);
+			}
+			catch(Exception e)
+			{
+				throw new BusinessLogicException(e);
+			}
+		}
+
+<%}%>		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Ein <see cref="<%=entityname%>DAO" /> mit den Parameterwerten.</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <exception cref="DAOInvalidCurrentRowException">Wird geworfen, wenn pCurrentRow größer als die Anzahl Datensätze in der Tabelle ist.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der im <see cref="<%=entityname%>DAO" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public <%=entityname%>DAO GetByParam(ClientContext pContext, <%=entityname%>DAO pParams)
+		{
+			return GetByParam(pContext, pParams, null, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Ein <see cref="<%=entityname%>DAO" /> mit den Parameterwerten.</param>
+		/// <param name="pTransactionId">Die Id der aktuell laufenden Transaktion</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <exception cref="DAOInvalidCurrentRowException">Wird geworfen, wenn pCurrentRow größer als die Anzahl Datensätze in der Tabelle ist.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der im <see cref="<%=entityname%>DAO" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public <%=entityname%>DAO GetByParam(ClientContext pContext, <%=entityname%>DAO pParams, Guid pTransactionId)
+		{
+			return GetByParam(pContext, pParams, null, pTransactionId);
+		}
+
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Ein <see cref="<%=entityname%>DAO" /> mit den Parameterwerten.</param>
+		/// <param name="pOrderList">Eine Liste von Spaltennamen, nach denen sortiert werden soll.</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <exception cref="DAOInvalidCurrentRowException">Wird geworfen, wenn pCurrentRow größer als die Anzahl Datensätze in der Tabelle ist.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der im <see cref="<%=entityname%>DAO" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public <%=entityname%>DAO GetByParam(ClientContext pContext, <%=entityname%>DAO pParams, ArrayList pOrderList)
+		{
+			return GetByParam(pContext, pParams, pOrderList, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Ein <see cref="<%=entityname%>DAO" /> mit den Parameterwerten.</param>
+		/// <param name="pOrderList">Eine Liste von Spaltennamen, nach denen sortiert werden soll.</param>
+		/// <param name="pTransactionId">Die Id der aktuell laufenden Transaktion</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <exception cref="DAOInvalidCurrentRowException">Wird geworfen, wenn pCurrentRow größer als die Anzahl Datensätze in der Tabelle ist.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der im <see cref="<%=entityname%>DAO" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// Die Sortierung erfolgt immer aufsteigend nach den in der ArrayList übergebenen Spaltennamen.
+		/// </remarks>
+		public <%=entityname%>DAO GetByParam(ClientContext pContext, <%=entityname%>DAO pParams, ArrayList pOrderList, Guid pTransactionId)
+		{
+			return (<%=entityname%>DAO)GetByParamDao(pContext, pParams, pOrderList, pTransactionId, false);
+		}
+
+		/// <summary>
+		/// Liefert ein leeres DataSet für einen neuen Datensatz der Entität <%=info.ObjectName%> (ohne Vorbelegung).
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellen- / Viewname nicht im gekapselten DataSet existiert.</exception>
+		/// <remarks>Das DatSet enthält lediglich die Strukturen, wie sie vom DbReader erzeugt werden.</remarks>
+		public <%=entityname%>DAO GetEmptyRecord(ClientContext pContext)
+		{
+			return (<%=entityname%>DAO)BuildVerifiedDAO(Get<%=entityname%>EmptyRecord(pContext));
+		}
+
+		/// <summary>
+		/// Liefert ein leeres DataSet für einen neuen Datensatz der Entität <%=info.ObjectName%>(ohne Vorbelegung).
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>Das DatSet enthält lediglich die Tabellenstrukturen, wie sie vom DbReader erzeugt werden.</remarks>
+		public DataSet Get<%=entityname%>EmptyRecord(ClientContext pContext)
+		{
+			return GetEmptyRecordDs(pContext);
+		}
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Eine <see cref="<%=entityname%>Parameter" />-Struktur mit den Parameterwerten.</param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der in der Struktur <see cref="<%=entityname%>Parameter" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public DataSet Get<%=entityname%>ByParam(ClientContext pContext, <%=entityname%>Parameter pParams)
+		{
+			return Get<%=entityname%>ByParam(pContext, pParams, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Eine <see cref="<%=entityname%>Parameter" />-Struktur mit den Parameterwerten.</param>
+		/// <param name="pTransactionId">Die Id der aktuell laufenden Transaktion</param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der in der Struktur <see cref="<%=entityname%>Parameter" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public DataSet Get<%=entityname%>ByParam(ClientContext pContext, <%=entityname%>Parameter pParams, Guid pTransactionId)
+		{
+			return Get<%=entityname%>ByParam(pContext, pParams, null, pTransactionId);
+		}
+
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Eine <see cref="<%=entityname%>Parameter" />-Struktur mit den Parameterwerten.</param>
+		/// <param name="pOrderList">Eine Liste von Spaltennamen, nach denen sortiert werden soll.</param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der in der Struktur <see cref="<%=entityname%>Parameter" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public DataSet Get<%=entityname%>ByParam(ClientContext pContext, <%=entityname%>Parameter pParams, ArrayList pOrderList)
+		{
+			return Get<%=entityname%>ByParam(pContext, pParams, pOrderList, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Eine <see cref="<%=entityname%>Parameter" />-Struktur mit den Parameterwerten.</param>
+		/// <param name="pOrderList">Eine Liste von Spaltennamen, nach denen sortiert werden soll.</param>
+		/// <param name="pTransactionId">Die Id der aktuell laufenden Transaktion</param>
+		/// <returns>Eine Dataset-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der in der Struktur <see cref="<%=entityname%>Parameter" /> angegebenen Werte eingeschränkt.
+		/// Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// Die Sortierung erfolgt immer aufsteigend nach den in der ArrayList übergebenen Spaltennamen.
+		/// </remarks>
+		public DataSet Get<%=entityname%>ByParam(ClientContext pContext, <%=entityname%>Parameter pParams, ArrayList pOrderList, Guid pTransactionId)
+		{
+			try
+			{
+				string qryResultId = DbReaderHelper.Instance.GetQueryId(pContext, QRY_LIST);
+	
+				SetDbParameters(qryResultId, pParams);
+<%	if(hasMandant) 
+		{
+%>				SetDbParameterMandant(pContext, qryResultId, pParams);
+<%	}
+		if(hasBuchungskreis) 
+		{
+%>				SetDbParameterBuchungskreis(pContext, qryResultId, pParams);
+<%	}
+		if(isVertrag) 
+		{
+%>				SetDbParameterSichtbarkeit(pContext, qryResultId);
+<%	} 
+		if(hasExtDatengruppe)
+		{
+%>				SetDbParameterExtDatengruppe( pContext, qryResultId);
+		<%}%>
+				if(null != pOrderList)
+				{
+					DbReaderHelper.Instance.SetOrder(qryResultId, pOrderList);
+				}
+	
+				if (mLog.IsDebugEnabled)
+				{
+					string test = DbReader.GetInstance().CheckQuerySyntax(qryResultId);
+					mLog.Debug("Get<%=entityname%>ByParam Sql for Context " + pContext + ": \n" + test);
+				}
+	
+				DataSet data = DbReaderHelper.Instance.ReadData(pContext, qryResultId, pTransactionId);
+				return data;
+			}
+			catch( ValidationException)
+			{
+				throw;
+			}
+			catch(BaseApplicationException e)
+			{
+				throw new ExecuteQueryFailedException(e);
+			}
+			catch(Exception e)
+			{
+				throw new BusinessLogicException(e);
+			}
+		}
+
+<%}
+		// NewRecord, Update und Validierungen nur für Tabellen
+		if(TYPE_TABLE == info.ObjectType)
+		{
+%>
+		/// <summary>
+		/// Erzeugt einen neuen, mit Defaultwerten initialisierten Datensatz für die Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <returns>Eine VerifiedDAO-Instanz mit dem neuen Datensatz.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <remarks>Der Primärschlüssel, Mandant und Buchungskreis sind bereits gefüllt.</remarks>
+		public <%=entityname%>DAO GetNewRecord(ClientContext pContext)
+		{
+			return (<%=entityname%>DAO)BuildVerifiedDAO(Get<%=entityname%>NewRecord(pContext));
+		}
+
+		/// <summary>
+		/// Erzeugt einen neuen, mit Defaultwerten initialisierten Datensatz für die Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <returns>Eine Dataset-Instanz mit dem neuen Datensatz.</returns>
+		/// <exception cref="ExecuteQueryFailedException">Wird geworfen, wenn bei der Initialisierung oder Ausführung der Abfrage ein Fehler auftritt.</exception>
+		/// <exception cref="BusinessLogicException">Wird geworfen, wenn eine nicht behandelte Exception auftritt</exception>
+		/// <remarks>Der Primärschlüssel, Mandant und Buchungskreis sind bereits gefüllt.</remarks>
+		public DataSet Get<%=entityname%>NewRecord(ClientContext pContext)
+		{
+			return GetNewRecord(pContext, TBL_NAME);
+		}
+		
+		/// <summary>
+		/// Aktualisiert die übergebenen Datensätze in der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pDao">Ein VerifiedDAO mit den zu aktualisierenden Daten.</param>
+		/// <returns>Die Anzahl der geschriebenen Datensätze.</returns>
+		/// <exception cref="DbWriterException">Wird geworfen, wenn beim Speichern ein Fehler auf dem Datenbankserver aufgetreten ist.</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <remarks>
+		/// Die Methode führt sowohl Updates als auch Inserts in der Datenbank aus. Das übergebene
+		/// DataSet darf durchaus mehrere Datensätze enthalten. Die Struktur des DataSets muss der
+		/// Tabellenstruktur entsprechen.
+		/// </remarks>
+		public int Update(ClientContext pContext, <%=entityname%>DAO pDao)
+		{
+			return Update(pContext, pDao, Guid.Empty);
+		}
+		
+		/// <summary>
+		/// Aktualisiert die übergebenen Datensätze in der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pDao">Ein VerifiedDAO mit den zu aktualisierenden Daten.</param>
+		/// <param name="pTransactionId">Die Id der Transaktion innerhalb derer der Update durchgeführt wird.</param>
+		/// <returns>Die Anzahl der geschriebenen Datensätze.</returns>
+		/// <exception cref="DbWriterException">Wird geworfen, wenn beim Speichern ein Fehler auf dem Datenbankserver aufgetreten ist.</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <remarks>
+		/// Die Methode führt sowohl Updates als auch Inserts in der Datenbank aus. Das übergebene
+		/// DataSet darf durchaus mehrere Datensätze enthalten. Die Struktur des DataSets muss der
+		/// Tabellenstruktur entsprechen.
+		/// </remarks>
+		public int Update(ClientContext pContext, <%=entityname%>DAO pDao, Guid pTransactionId)
+		{
+			return UpdateDao(pContext, pDao, pTransactionId, <%=entitynameUpper%>_ID);
+		}
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Aktualisiert die übergebenen Datensätze in der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pData">Ein DataSet mit den zu aktualisierenden Daten.</param>
+		/// <returns>Die Anzahl der geschriebenen Datensätze.</returns>
+		/// <exception cref="DbWriterException">Wird geworfen, wenn beim Speichern ein Fehler auf dem Datenbankserver aufgetreten ist.</exception>
+		/// <remarks>
+		/// Die Methode führt sowohl Updates als auch Inserts in der Datenbank aus. Das übergebene
+		/// DataSet darf durchaus mehrere Datensätze enthalten. Die Struktur des DataSets muss der
+		/// Tabellenstruktur entsprechen.
+		/// </remarks>
+		public int Update<%=entityname%>(ClientContext pContext, DataSet pData)
+		{
+			return Update<%=entityname%>(pContext, pData, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Aktualisiert die übergebenen Datensätze in der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pData">Ein DataSet mit den zu aktualisierenden Daten.</param>
+		/// <param name="pTransactionId">Die Id der Transaktion innerhalb derer der Update durchgeführt wird.</param>
+		/// <returns>Die Anzahl der geschriebenen Datensätze.</returns>
+		/// <exception cref="DbWriterException">Wird geworfen, wenn beim Speichern ein Fehler auf dem Datenbankserver aufgetreten ist.</exception>
+		/// <remarks>
+		/// Die Methode führt sowohl Updates als auch Inserts in der Datenbank aus. Das übergebene
+		/// DataSet darf durchaus mehrere Datensätze enthalten. Die Struktur des DataSets muss der
+		/// Tabellenstruktur entsprechen.
+		/// </remarks>
+		public int Update<%=entityname%>(ClientContext pContext, DataSet pData, Guid pTransactionId)
+		{
+			return UpdateDs(pContext, pData, pTransactionId, <%=entitynameUpper%>_ID);
+		}
+<%}%>
+		/// <summary>
+		/// Löscht einen Datensatz aus der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pId">Der Primärschlüssel des zu Löschenden Datensatzes.</param>
+		/// <returns>Die Anzahl der gelöschten Sätze.</returns>
+		/// <exception cref="InvalidParameterException">Wird geworfen, wenn ein ungültiger Primärschlüssel übergeben wurde.</exception>
+		/// <exception cref="DbWriterException">Wird geworfen, wenn beim Löschen ein Fehler auf dem Datenbankserver aufgetreten ist.</exception>
+		public int Delete(ClientContext pContext, string pId)
+		{
+			return Delete(pContext, pId, Guid.Empty);
+		}
+		
+		/// <summary>
+		/// Löscht einen Datensatz aus der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pId">Der Primärschlüssel des zu Löschenden Datensatzes.</param>
+		/// <returns>Die Anzahl der gelöschten Sätze.</returns>
+		/// <exception cref="InvalidParameterException">Wird geworfen, wenn ein ungültiger Primärschlüssel übergeben wurde.</exception>
+		/// <exception cref="DbWriterException">Wird geworfen, wenn beim Löschen ein Fehler auf dem Datenbankserver aufgetreten ist.</exception>
+		public int Delete(ClientContext pContext, string pId, Guid pTransactionId)
+		{
+			return DeleteRecord(pContext, pId, pTransactionId);
+		}
+
+		/// <summary>
+		/// Löscht alle Datensätze aus der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pDao">Ein VerifiedDAO mit den zu löschenden Datensätzen</param>
+		/// <returns>Die Anzahl der gelöschten Sätze.</returns>
+		/// <exception cref="InvalidParameterException">Wird geworfen, wenn ein ungültiges VerifiedDAO übergeben wurde.</exception>
+		/// <exception cref="DbWriterException">Wird geworfen, wenn beim Löschen ein Fehler auf dem Datenbankserver aufgetreten ist.</exception>
+		public int Delete(ClientContext pContext, <%=entityname%>DAO pDao)
+		{
+			return Delete(pContext, pDao, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Löscht alle Datensätze aus der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pDao">Ein VerifiedDAO mit den zu löschenden Datensätzen</param>
+		/// <param name="pTransactionId">Die Id der Transaktion innerhalb derer der das Delete durchgeführt wird.</param>
+		/// <returns>Die Anzahl der gelöschten Sätze.</returns>
+		/// <exception cref="InvalidParameterException">Wird geworfen, wenn ein ungültiges VerifiedDAO übergeben wurde.</exception>
+		/// <exception cref="DbWriterException">Wird geworfen, wenn beim Löschen ein Fehler auf dem Datenbankserver aufgetreten ist.</exception>
+		public int Delete(ClientContext pContext, <%=entityname%>DAO pDao, Guid pTransactionId)
+		{
+			return DeleteDao(pContext, pDao, pTransactionId, <%=entitynameUpper%>_ID);
+		}
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Löscht alle Datensätze aus der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pData">Ein DataSet mit den zu löschenden Datensätzen</param>
+		/// <returns>Die Anzahl der gelöschten Sätze.</returns>
+		/// <exception cref="InvalidParameterException">Wird geworfen, wenn ein ungültiges VerifiedDAO übergeben wurde.</exception>
+		/// <exception cref="DbWriterException">Wird geworfen, wenn beim Löschen ein Fehler auf dem Datenbankserver aufgetreten ist.</exception>
+		public int Delete<%=entityname%>(ClientContext pContext, DataSet pData)
+		{
+			return Delete<%=entityname%>(pContext, pData, Guid.Empty);
+		}
+
+		/// <summary>
+		/// Löscht alle Datensätze aus der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pDao">Ein VerifiedDAO mit den zu löschenden Datensätzen</param>
+		/// <param name="pTransactionId">Die Id der Transaktion innerhalb derer der das Delete durchgeführt wird.</param>
+		/// <returns>Die Anzahl der gelöschten Sätze.</returns>
+		/// <exception cref="InvalidParameterException">Wird geworfen, wenn ein ungültiges VerifiedDAO übergeben wurde.</exception>
+		/// <exception cref="DbWriterException">Wird geworfen, wenn beim Löschen ein Fehler auf dem Datenbankserver aufgetreten ist.</exception>
+		public int Delete<%=entityname%>(ClientContext pContext, DataSet pData, Guid pTransactionId)
+		{
+			return DeleteDs(pContext, pData, pTransactionId, <%=entitynameUpper%>_ID);
+		}
+<%}%>
+		/// <summary>
+		/// Prüft, ob Datensatz mit dem übergebenen Primärschlüssel bereits in der Entität <%=info.ObjectName%> existiert.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pId">Der gesuchte Primärschlüssel.</param>
+		/// <returns><c>true</c>, wenn bereits ein Datensatz existiert, sonst <c>false</c>.</returns>
+		public bool Validate<%=entityname%>IdExist(ClientContext pContext, string pId)
+		{
+			return ValidateIdExist(pContext, pId);
+		}
+
+		/// <summary>
+		/// Standardvalidierung aller Felder in Entität <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pDao">Ein VerifiedDAO mit den zu prüfenden Daten</param>
+		/// <exception cref="ValidationException">Wird geworfen, wenn ungültige Einträge in den Spalten gefunden wurden.</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <exception cref="DAOInvalidCurrentRowException">Wird geworfen, wenn der Index größer als die Anzahl Datensätze in der Tabelle ist.</exception>
+		/// <remarks>
+		/// Es wird immer der erste Datensatz in der Tabelle <c>TD_<%=entityname%>_List</c> validiert.
+		/// </remarks>
+		public void Validate<%=entityname%>Fields(ClientContext pContext, <%=entityname%>DAO pDao)
+		{
+			Validate<%=entityname%>Fields(pContext, pDao.GetDataSet());	
+		}
+
+		/// <summary>
+		/// Standardvalidierung aller Felder in Entität <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pData">Ein DataSet mit den zu validierenden Daten.</param>
+		/// <exception cref="ValidationException">Wird geworfen, wenn ungültige Einträge in den Spalten gefunden wurden.</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <exception cref="DAOInvalidCurrentRowException">Wird geworfen, wenn der Index größer als die Anzahl Datensätze in der Tabelle ist.</exception>
+		/// <remarks>
+		/// Es wird immer der erste Datensatz in der Tabelle <c>TD_<%=entityname%>_List</c> validiert.
+		/// </remarks>
+		public void Validate<%=entityname%>Fields(ClientContext pContext, DataSet pData)
+		{
+			if(pData.Tables.Contains(TableDataName))
+			{
+<%
+				OutputValidateAllFields(cols, true);
+%>			}
+		}
+
+		/// <summary>
+		/// Standardvalidierung aller Felder in Entität <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pRow">Eine DataRow mit den zu validierenden Daten.</param>
+		/// <exception cref="ValidationException">Wird geworfen, wenn ungültige Einträge in den Spalten gefunden wurden.</exception>
+		/// <exception cref="DAODataSetNullException">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>
+		/// <exception cref="DAOInvalidTableNameException">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>
+		/// <exception cref="DAOInvalidCurrentRowException">Wird geworfen, wenn der Index größer als die Anzahl Datensätze in der Tabelle ist.</exception>
+		/// <remarks>
+		/// Es wird immer der erste Datensatz in der Tabelle <c>TD_<%=entityname%>_List</c> validiert.
+		/// </remarks>
+		public void Validate<%=entityname%>Fields(ClientContext pContext, DataRow pRow)
+		{
+<%
+				OutputValidateAllFields(cols, false);
+%>		}
+<%
+		OutputFieldValidationMethods(cols, entityname);
+}%>		/// <summary>
+		/// Ruft die Liste für die normierten VON Spalten ab
+		/// </summary>
+		public override ArrayList GetNormalizeFromDateTimes()
+	    {
+	        return NormalizeFromDateTimes;
+	    }
+		
+		/// <summary>
+		/// Ruft die Liste für die normierten BIS Spalten ab
+		/// </summary>
+		public override ArrayList GetNormalizeToDateTimes()
+	    {
+	        return NormalizeToDateTimes;
+	    }
+
+<%if (info.Stammdatenuebernahme){ %>
+		/// <summary>
+        /// gibt die SQL Syntax für eine Query zurück
+        /// </summary>
+        /// <param name="pContext"></param>
+        /// <param name="pParams"></param>
+        /// <param name="pOrderList"></param>
+        /// <returns></returns>
+        public string GetQuerySQL(ClientContext pContext, <%=entityname%>DAO pParams, ArrayList pOrderList)
+        {
+            try
+            {
+                string qryResultId = DbReaderHelper.Instance.GetQueryId(pContext, QRY_LIST);
+
+                SetDbParameters(qryResultId, pParams);
+                SetDbParameterMandant(pContext, qryResultId, pParams);
+                SetDbParameterBuchungskreis(pContext, qryResultId, pParams);
+
+                if (null != pOrderList)
+                {
+                    DbReaderHelper.Instance.SetOrder(qryResultId, pOrderList);
+                }
+                // Syntax zurückgeben
+                return DbReader.GetInstance().CheckQuerySyntax(qryResultId);
+            }
+            catch (ValidationException)
+            {
+                throw;
+            }
+            catch (BaseApplicationException e)
+            {
+                throw new ExecuteQueryFailedException(e);
+            }
+            catch (Exception e)
+            {
+                throw new BusinessLogicException(e);
+            }
+        }
+		
+		/// <summary>
+        /// Wandelt ein DataSet in ein VerifiedDAO um.
+        /// </summary>
+        /// <param name="pData">Das DataSet mit den Daten</param>
+        /// <returns>Ein VerifiedDAO</returns>
+        public <%=entityname%>DAO BuildDAOFromDataSet(DataSet pData)
+        {
+		    CheckTableExists(pData, TableDataName);
+            
+            <%=entityname%>DAO dao = new <%=entityname%>DAO();
+            dao.AddDataSet(pData);
+            dao.SetCurrentRow(<%=entityname%>DAO.TBL_DATA, 0);
+            return dao;
+        }
+		
+<%} // Ende Code für Stammdatenübernahme%>
+		#endregion Öffentliche Methoden
+
+		#region private Methoden
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Setzen der Abfrageparameter aus der Parameterliste.
+		/// </summary>
+		/// <param name="pQryResultId">Die Id für die aktuelle Query.</param>
+		/// <param name="pParams">Eine Struktur mit den Parameterwerten.</param>
+		private static void SetDbParameters(string pQryResultId, <%=entityname%>Parameter pParams)
+		{
+			// Dummy-Zuweisung wegen Generierung Sourcecode
+			string qryResultId = pQryResultId;
+			
+<%	OutputDbParameter(cols, info.NormTimeToColumns, dbReaderDatatypeColumns, entityname);%>
+		}
+		
+<%}%>	
+<%	if(hasMandant) 
+		{ %>
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Setzen der Abfrageparameter für Mandanten.
+		/// </summary>
+		/// <param name="pContext">Der Client-Kontext für die Abfrage.</param>
+		/// <param name="pQryResultId">Die Id für die aktuelle Query.</param>
+		/// <param name="pParams">Eine Struktur mit den Parameterwerten.</param>
+		/// <exception cref="InvalidParameterException">Wird geworfen, wenn ein ungültiger Parameters übergeben wurde.</exception>
+		/// <exception cref="SetParameterFailedException">Wird geworfen, wenn der Parameter nicht gesetzt werden konnte.</exception>
+		private static void SetDbParameterMandant(ClientContext pContext, string pQryResultId, <%=entityname%>Parameter pParams)
+		{
+			DbReaderHelper.Instance.SetDbParameter(pQryResultId, MANDANT, pParams.Mandant);
+			DbReaderHelper.Instance.SetDbParameter(pQryResultId, VON_MANDANT, pParams.Von_Mandant);
+			DbReaderHelper.Instance.SetDbParameter(pQryResultId, BIS_MANDANT, pParams.Bis_Mandant);
+
+			// Standard-Mandant nur, wenn Von_Mandant / Bis_Mandant nicht als Parameter übergeben wurden
+			if (null == pParams.Von_Mandant && null == pParams.Bis_Mandant)
+			{
+				DbReaderHelper.Instance.SetDbParameter(pQryResultId, MANDANT, pContext.Mandant);
+			}
+		}
+<%}%>		
+<%	}
+		if(hasBuchungskreis) 
+		{ %>
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Setzen der Abfrageparameter für Buchungskreis.
+		/// </summary>
+		/// <param name="pContext">Der Client-Kontext für die Abfrage.</param>
+		/// <param name="pQryResultId">Die Id für die aktuelle Query.</param>
+		/// <param name="pParams">Eine Struktur mit den Parameterwerten.</param>
+		/// <exception cref="InvalidParameterException">Wird geworfen, wenn ein ungültiger Parameters übergeben wurde.</exception>
+		/// <exception cref="SetParameterFailedException">Wird geworfen, wenn der Parameter nicht gesetzt werden konnte.</exception>
+		private static void SetDbParameterBuchungskreis(ClientContext pContext, string pQryResultId, <%=entityname%>Parameter pParams)
+		{
+			DbReaderHelper.Instance.SetDbParameter(pQryResultId, BUCHUNGSKREIS, pParams.Buchungskreis);
+			DbReaderHelper.Instance.SetDbParameter(pQryResultId, VON_BUCHUNGSKREIS, pParams.Von_Buchungskreis);
+			DbReaderHelper.Instance.SetDbParameter(pQryResultId, BIS_BUCHUNGSKREIS, pParams.Bis_Buchungskreis);
+
+			// Standard-Buchungskreis nur, wenn Von_Buchungskreis / Bis_Buchungskreis nicht als Parameter übergeben wurde
+			if (null == pParams.Von_Buchungskreis && null == pParams.Bis_Buchungskreis)
+			{
+				DbReaderHelper.Instance.SetDbParameter(pQryResultId, BUCHUNGSKREIS, pContext.Buchungskreis);
+			}
+		}
+		<%}}%>		
+		
+		#endregion private Methoden
+
+<% output.preserve("Individuelle_Anpassungen");%>
+	}
+}
+<%
+			// neue Dateien der Projektdatei hinzufügen
+			bool addToProject = false;
+			if(!File.Exists(filename))
+				addToProject = true;
+			
+			// Save File
+			output.save(filename, false);
+			output.clear();	
+			
+			// neue Dateien der Projektdatei hinzufügen
+			if(addToProject)
+			{
+				// Projektdatei auschecken
+				TfsHelper.Instance.CheckOut(filePathProjectFile);
+				GeneratorHelper.AddFileToProject(Project.Server, fileNameInProject);
+				TfsHelper.Instance.Add(filename);
+			}			
+		}
+		output.clear();
+		output.writeln("Generierung DataAccess-Klassen erfolgreich beendet...");
+		output.writeln("");
+		output.writeln("Ausgabeverzeichnis = " + input["TargetPath"]);
+		output.writeln("");
+		output.writeln("Folgende Dateien wurden generiert:" );
+		output.writeln("");
+		foreach(string csFile in csFiles)
+		{
+		    output.writeln(csFile);
+		}
+		output.writeln("");
+		output.writeln("==> Ende <==");
+		output.writeln("");
+		string logname = input["TargetPath"].ToString();
+		if (!logname.EndsWith("\\") ) logname += "\\";
+		logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+		output.append(logname);
+    output.clear();	
+		MyMeta.SaveUserMetaData();
+	}
+
+	// Gibt alle Spalten der Tabelle als Attribute-Attribut aus
+	// Beispiel:
+	// public const string BENUTZER_ID = "Benutzer_Id";
+	private void OutputAttributes(IColumns pColumns, Dictionary<string,string> pDbReaderDatatypeCols)
+	{
+		if (null != pColumns)
+		{
+			int oldTabLevel = output.tabLevel;
+			output.tabLevel = 2;
+			int maxLength = GeneratorHelper.MaxColLength(pColumns);
+			foreach(Column col in pColumns)
+			{
+				if(col.Name.ToUpper() == MANDANT || col.Name.ToUpper() == BUCHUNGSKREIS || col.Name.ToUpper() == UPDDATE || col.Name.ToUpper() == INSDATE 
+				|| col.Name.ToUpper() == INSUSER || col.Name.ToUpper() == UPDUSER || col.Name.ToUpper() == GELOESCHT || col.Name.ToUpper() == SICHTBARKEIT || col.Name.ToUpper() == EXT_DATENGRUPPE || col.Name.ToUpper() == VERSION_NUM)
+				{
+					continue;
+				}
+				output.autoTabLn("public const string " + col.Name.ToUpper() + GeneratorHelper.FillUp(col.Name, maxLength) + "     = \"" + GeneratorHelper.ConvertName(col.Name) + "\";");
+				
+				if(GeneratorHelper.IsNumeric(col, pDbReaderDatatypeCols))
+				{
+					output.autoTabLn("public const string VON_" + col.Name.ToUpper() + GeneratorHelper.FillUp(col.Name, maxLength) + " = \"Von_" + GeneratorHelper.ConvertName(col.Name) + "\";");
+					output.autoTabLn("public const string BIS_" + col.Name.ToUpper() + GeneratorHelper.FillUp(col.Name, maxLength) + " = \"Bis_" + GeneratorHelper.ConvertName(col.Name) + "\";");
+				}
+			}
+			output.tabLevel = oldTabLevel;
+		}
+	}
+	
+	// Gibt alle Spalten der Tabelle als Attribute-Attribut aus
+	// Beispiel:
+	// public const string BENUTZER_ID = "Benutzer_Id";
+	private void OutputAttributes(FunctionGenInfo pFunctionGenInfo, Dictionary<string,string> pDbReaderDatatypeCols)
+	{
+		if (null != pFunctionGenInfo)
+		{
+			int oldTabLevel = output.tabLevel;
+			output.tabLevel = 2;
+			int maxLength = GeneratorHelper.MaxColLength(pFunctionGenInfo);
+			foreach(TvfColumnInfo col in pFunctionGenInfo.FunctionReturnValueColumns)
+			{
+				if(col.Name.ToUpper() == MANDANT || col.Name.ToUpper() == BUCHUNGSKREIS || col.Name.ToUpper() == UPDDATE || col.Name.ToUpper() == INSDATE 
+				|| col.Name.ToUpper() == INSUSER || col.Name.ToUpper() == UPDUSER || col.Name.ToUpper() == GELOESCHT || col.Name.ToUpper() == SICHTBARKEIT || col.Name.ToUpper() == EXT_DATENGRUPPE || col.Name.ToUpper() == VERSION_NUM)
+				{
+					continue;
+				}
+				output.autoTabLn("public const string " + col.Name.ToUpper() + GeneratorHelper.FillUp(col.Name, maxLength) + "     = \"" + GeneratorHelper.ConvertName(col.Name) + "\";");
+				
+				if(GeneratorHelper.IsNumeric(col, pDbReaderDatatypeCols))
+				{
+					output.autoTabLn("public const string VON_" + col.Name.ToUpper() + GeneratorHelper.FillUp(col.Name, maxLength) + " = \"Von_" + GeneratorHelper.ConvertName(col.Name) + "\";");
+					output.autoTabLn("public const string BIS_" + col.Name.ToUpper() + GeneratorHelper.FillUp(col.Name, maxLength) + " = \"Bis_" + GeneratorHelper.ConvertName(col.Name) + "\";");
+				}
+			}
+			output.tabLevel = oldTabLevel;
+		}
+	}
+
+	// Ausgabe der Aufrufe SetDbParameter(...) für alle Spalten der Tabelle
+	// Beispiel:
+	// SetDbParameter(qryResultId, KonditionsartColDefs.MANDANT, pContext.Mandant);
+	private void OutputDbParameter(IColumns pColumns, string pNormTimeToColumns, Dictionary<string,string> pDbReaderDatatypeCols, string pEntityname)
+	{
+		int oldTabLevel = output.tabLevel;
+		output.tabLevel = 3;
+		foreach(Column col in pColumns)
+		{
+			string colName = GeneratorHelper.ConvertName(col.Name);
+			if(col.Name.Equals(GELOESCHT))
+			{
+				output.autoTabLn("if(!((null == pParams." + colName + ") || (pParams." + colName + ".Equals(string.Empty))))");
+				output.autoTabLn("{");
+				output.tabLevel = 4;
+				output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() + ", pParams." + colName + ");");
+				output.tabLevel = 3;
+				output.autoTabLn("}");
+				output.autoTabLn("else");
+				output.autoTabLn("{");
+				output.tabLevel = 4;
+				output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() + ", \"0\");");
+				output.tabLevel = 3;
+				output.autoTabLn("}");
+			}
+			else
+			{
+				// Numerische Felder bekommen VON_ sowie BIS_ Parameter zusätzlich. Mandant und Buchungskreis sind ausgenommen, da diese nicht vom Nutzer eingegeben werden.
+				if((GeneratorHelper.IsNumeric(col, pDbReaderDatatypeCols)) && (MANDANT != col.Name.ToUpper()) && (BUCHUNGSKREIS != col.Name.ToUpper()))
+				{
+					// Normalisierte Bis-Werte bekommen ihre Uhrzeit auf 23:59:00 gesetzt, damit die Suche nach genau so heraus geschriebenen Werten funktioniert.
+					if(IsColumnInList(colName, pNormTimeToColumns))
+					{
+						normtimeColumnFound = true;
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, VON_" + col.Name.ToUpper() + ", NormalizeDateTimeAsString( pParams.Von_" + colName + ", false));");
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, BIS_" + col.Name.ToUpper() + ", NormalizeDateTimeAsString( pParams.Bis_" + colName + ", false));");
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() + ", NormalizeDateTimeAsString( pParams." + colName + ", false));");
+					}
+					// Numerische nicht-DateTime-Attribute bekommen zusätzliche Validierung, um fehlerhafte Suchparameter für '='-Anfragen auszuschließen.
+					else
+					{
+						// Prüfung auf gültigen numerischen Wert nur für numerische Datentypen, nicht für DateTime durchführen.
+						if (col.LanguageType.ToLower() != "datetime")
+						{
+							output.autoTabLn("try");
+							output.autoTabLn("{");
+							output.tabLevel = 4;
+							output.autoTabLn("StandardValidator.ValidateNumericField( pParams.Von_" + colName + ");");
+							output.autoTabLn("StandardValidator.ValidateNumericField( pParams.Bis_" + colName + ");");
+							output.autoTabLn("StandardValidator.ValidateNumericField( pParams." + colName + ");");
+							output.tabLevel = 3;
+							output.autoTabLn("}");
+							output.autoTabLn("catch( ValidationException e)");
+							output.autoTabLn("{");
+							output.tabLevel = 4;
+							output.autoTabLn("e.DbFieldInfo = " + col.Name.ToUpper() + ";");
+							output.autoTabLn("throw;");
+							output.tabLevel = 3;
+							output.autoTabLn("}");
+							output.autoTabLn("catch( Exception e)");
+							output.autoTabLn("{");
+							output.tabLevel = 4;
+							output.autoTabLn("throw new BusinessLogicException(\"UNEXPECTED_EXCEPTION\", e);");
+							output.tabLevel = 3;
+							output.autoTabLn("}");
+						}
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, VON_" + col.Name.ToUpper() + ", pParams.Von_" + colName + ");");
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, BIS_" + col.Name.ToUpper() + ", pParams.Bis_" + colName + ");");
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() + ", pParams." + colName + ");");
+					}
+				}
+				// Nichtnumerische Felder bekommen weder VON_ und BIS-Parameter, noch gesonderte Validierungen.
+				else
+				{
+					// Normalisierte Bis-Werte bekommen ihre Uhrzeit auf 23:59:00 gesetzt, damit die Suche nach genau so heraus geschriebenen Werten funktioniert.
+					if(IsColumnInList(colName, pNormTimeToColumns))
+					{
+						normtimeColumnFound = true;
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() + ", NormalizeDateTimeAsString( pParams." + colName + ", false));");
+					}
+					else
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() + ", pParams." + colName + ");");
+				}
+			}
+		}
+		output.tabLevel = oldTabLevel;
+	}
+
+	// Ausgabe der Aufrufe SetDbParameter(...) für alle Spalten der Tabelle
+	// Beispiel:
+	// SetDbParameter(qryResultId, KonditionsartColDefs.MANDANT, pContext.Mandant);
+	private void OutputDbParameterDAO(IColumns pColumns, string pNormTimeToColumns, Dictionary<string,string> pDbReaderDatatypeCols, string pEntityname)
+	{
+		int oldTabLevel = output.tabLevel;
+		output.tabLevel = 3;
+		foreach(Column col in pColumns)
+		{
+			string colName = GeneratorHelper.ConvertName(col.Name);
+			if(col.Name.Equals(GELOESCHT))
+			{
+				output.autoTabLn("if(!pParams.Prm" + colName + ".Equals(string.Empty))");
+				output.autoTabLn("{");
+				output.tabLevel = 4;
+				output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() + ", pParams.Prm" + colName + ");");
+				output.tabLevel = 3;
+				output.autoTabLn("}");
+
+				// IN-Abfragen fuer Geloescht-Spalten:
+				output.autoTabLn("else if(null != pParams.GetPrm" + colName + "_Array())");
+				output.autoTabLn("{");
+				output.tabLevel = 4;
+				output.autoTabLn("foreach(string prm in pParams.GetPrm" + colName + "_Array())");
+				output.autoTabLn("{");
+				output.tabLevel = 5;
+				output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() +", prm, \"in\");");
+				output.tabLevel = 4;
+				output.autoTabLn("}");
+				output.tabLevel = 3;
+				output.autoTabLn("}");
+
+				output.autoTabLn("else");
+				output.autoTabLn("{");
+				output.tabLevel = 4;
+				output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() + ", \"0\");");
+				output.tabLevel = 3;
+				output.autoTabLn("}");				
+			}
+			else
+			{
+				// Numerische Felder bekommen VON_ sowie BIS_ Parameter zusätzlich. Mandant und Buchungskreis sind ausgenommen, da diese nicht vom Nutzer eingegeben werden.
+				if((GeneratorHelper.IsNumeric(col, pDbReaderDatatypeCols)) && (MANDANT != col.Name.ToUpper()) && (BUCHUNGSKREIS != col.Name.ToUpper()))
+				{
+					if(IsColumnInList(colName, pNormTimeToColumns))
+					{
+						normtimeColumnFound = true;
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, VON_" + col.Name.ToUpper() + ", NormalizeDateTimeAsString( pParams.PrmVon_" + colName + ", false));");
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, BIS_" + col.Name.ToUpper() + ", NormalizeDateTimeAsString( pParams.PrmBis_" + colName + ", false));");
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() + ", NormalizeDateTimeAsString( pParams.Prm" + colName + ", false));");
+					}
+					// Numerische nicht-DateTime-Attribute bekommen zusätzliche Validierung, um fehlerhafte Suchparameter für '='-Anfragen auszuschließen.
+					else
+					{
+						// Prüfung auf gültigen numerischen Wert nur für numerische Datentypen, nicht für DateTime durchführen.
+						if (col.LanguageType.ToLower() != "datetime")
+						{
+							output.autoTabLn("try");
+							output.autoTabLn("{");
+							output.tabLevel = 4;
+							output.autoTabLn("if(!pParams.PrmVon_" + colName + ".Equals(string.Empty))");
+							output.tabLevel = 5;
+							output.autoTabLn("StandardValidator.ValidateNumericField( pParams.PrmVon_" + colName + ");");
+							output.tabLevel = 4;
+							output.autoTabLn("if(!pParams.PrmBis_" + colName + ".Equals(string.Empty))");
+							output.tabLevel = 5;
+							output.autoTabLn("StandardValidator.ValidateNumericField( pParams.PrmBis_" + colName + ");");
+							output.tabLevel = 4;
+							output.autoTabLn("if(!pParams.Prm" + colName + ".Equals(string.Empty))");
+							output.tabLevel = 5;
+							output.autoTabLn("StandardValidator.ValidateNumericField( pParams.Prm" + colName + ");");
+							output.tabLevel = 3;
+							output.autoTabLn("}");
+							output.autoTabLn("catch( ValidationException e)");
+							output.autoTabLn("{");
+							output.tabLevel = 4;
+							output.autoTabLn("e.DbFieldInfo = " + col.Name.ToUpper() + ";");
+							output.autoTabLn("throw;");
+							output.tabLevel = 3;
+							output.autoTabLn("}");
+							output.autoTabLn("catch( Exception e)");
+							output.autoTabLn("{");
+							output.tabLevel = 4;
+							output.autoTabLn("throw new BusinessLogicException(\"UNEXPECTED_EXCEPTION\", e);");
+							output.tabLevel = 3;
+							output.autoTabLn("}");
+						}
+						output.tabLevel = 4;
+						output.autoTabLn("if(!pParams.PrmVon_" + colName + ".Equals(string.Empty))");
+						output.tabLevel = 5;
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, VON_" + col.Name.ToUpper() + ", pParams.PrmVon_" + colName + ");");
+						output.tabLevel = 4;
+						output.autoTabLn("if(!pParams.PrmBis_" + colName + ".Equals(string.Empty))");
+						output.tabLevel = 5;
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, BIS_" + col.Name.ToUpper() + ", pParams.PrmBis_" + colName + ");");
+						output.tabLevel = 4;
+						output.autoTabLn("if(!pParams.Prm" + colName + ".Equals(string.Empty))");
+						output.tabLevel = 5;
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() + ", pParams.Prm" + colName + ");");
+						output.tabLevel = 4;
+					}
+				}
+				// Nichtnumerische Felder bekommen weder VON_ und BIS-Parameter, noch gesonderte Validierungen.
+				else
+				{
+					// Normalisierte Bis-Werte bekommen ihre Uhrzeit auf 23:59:00 gesetzt, damit die Suche nach genau so heraus geschriebenen Werten funktioniert.
+					if(IsColumnInList(colName, pNormTimeToColumns))
+					{
+						normtimeColumnFound = true;
+						output.tabLevel = 4;
+						output.autoTabLn("if(!pParams.Prm" + colName + ".Equals(string.Empty))");
+						output.tabLevel = 5;
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() + ", NormalizeDateTimeAsString( pParams.Prm" + colName + ", false));");
+						output.tabLevel = 4;
+					}
+					else
+					{
+						output.tabLevel = 4;
+						output.autoTabLn("if(!pParams.Prm" + colName + ".Equals(string.Empty))");
+						output.tabLevel = 5;
+						output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() + ", pParams.Prm" + colName + ");");
+						output.tabLevel = 4;
+					}
+				}
+
+				// IN-Abfragen fuer sonstige Spalten:
+				output.autoTabLn("if(null != pParams.GetPrm" + colName + "_Array())");
+				output.autoTabLn("{");
+				output.tabLevel = 4;
+				output.autoTabLn("foreach(string prm in pParams.GetPrm" + colName + "_Array())");
+				output.autoTabLn("{");
+				output.tabLevel = 5;
+				output.autoTabLn("DbReaderHelper.Instance.SetDbParameter(qryResultId, " + col.Name.ToUpper() +", prm, \"in\");");
+				output.tabLevel = 4;
+				output.autoTabLn("}");
+				output.tabLevel = 3;
+				output.autoTabLn("}");
+			}
+		}
+		output.tabLevel = oldTabLevel;
+	}
+
+	// Ausgabe der Methodenaufrufe zum Prüfen der einzelnen Felder
+	// Beispiel:
+	// Konditionsart_IdValidate(pContext, pData);
+	private void OutputValidateAllFields(IColumns pColumns, bool pForDataSet)
+	{
+		int oldTabLevel = output.tabLevel;
+		string parameterName;
+		if(pForDataSet)
+		{
+			output.tabLevel = 4;
+			parameterName = "pData";
+		}
+		else
+		{
+			output.tabLevel = 3;
+			parameterName = "pRow";
+		}
+		foreach(Column col in pColumns)
+		{
+			// Boolsche Felder, die keine Mussfelder sind, werden nicht geprüft
+			if((col.LanguageType.ToLower() == "bool") && (col.IsNullable))
+			{
+				continue;
+			}
+			else if(col.Name.ToUpper() == GELOESCHT)
+			{
+				// Löschkennzeichen als Bitfeld wird nicht geprüft, um Fehler bei der Validierung von
+				// neu angelegten Datensätzen zu vermeiden. 
+				continue;
+			}
+			output.autoTabLn(GeneratorHelper.ConvertName(col.Name) + "Validate(pContext, " + parameterName + ");");
+		}
+		output.tabLevel = oldTabLevel;
+	}
+
+	// Generieren der Methoden zum Prüfen der einzelnen Felder
+	private void OutputFieldValidationMethods(IColumns pColumns, string pEntityName)
+	{
+		string objectname = "<undefined>";
+		try
+		{
+			objectname = pColumns[0].Table.Name;
+		}
+		catch(Exception)
+		{
+			objectname = pColumns[0].View.Name;
+		}
+		int oldTabLevel = output.tabLevel;
+		foreach(Column col in pColumns)
+		{
+			// Boolsche Felder, die keine Mussfelder sind, werden nicht geprüft
+			if((col.LanguageType.ToLower() == "bool") && (col.IsNullable))
+			{
+				continue;
+			}
+			else if(col.Name.ToUpper() == GELOESCHT)
+			{
+				// Löschkennzeichen als Bitfeld wird nicht geprüft, um Fehler bei der Validierung von
+				// neu angelegten Datensätzen zu vermeiden. 
+				continue;
+			}
+			output.tabLevel = 2;
+			output.autoTabLn("/// <summary>");
+			output.autoTabLn("/// Standardvalidierung für das Feld " + GeneratorHelper.ConvertName(col.Name) + " der Entität " + objectname + ".");
+			output.autoTabLn("/// </summary>");
+			output.autoTabLn("/// <param name=\"pContext\">Der aktuelle <see cref=\"ClientContext\" />.</param>");
+			output.autoTabLn("/// <param name=\"pDao\">Ein VerifiedDAO mit den zu prüfenden Daten</param>");
+			output.autoTabLn("/// <exception cref=\"ValidationException\">Wird geworfen, wenn ungültige Einträge in den Spalten gefunden wurden.</exception>");
+			output.autoTabLn("/// <exception cref=\"DAODataSetNullException\">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>");
+			output.autoTabLn("/// <exception cref=\"DAOInvalidTableNameException\">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>");
+			output.autoTabLn("/// <exception cref=\"DAOInvalidCurrentRowException\">Wird geworfen, wenn der Index größer als die Anzahl Datensätze in der Tabelle ist.</exception>");
+			output.autoTabLn("/// <remarks>");
+			output.autoTabLn("/// Es wird immer der erste Datensatz in der Tabelle <c>TD_" + pEntityName + "_List</c> validiert.");
+			output.autoTabLn("/// </remarks>");
+			output.autoTabLn("public void Validate_" + GeneratorHelper.ConvertName(col.Name) + "(ClientContext pContext, " + pEntityName + "DAO pDao)");
+			output.autoTabLn("{");
+			output.tabLevel  = 3;
+			output.autoTabLn(GeneratorHelper.ConvertName(col.Name) +"Validate(pContext, pDao.GetDataSet());");
+			output.tabLevel = 2;
+			output.autoTabLn("}");
+			output.writeln("");
+			if(col.Name.ToUpper() == BUCHUNGSKREIS || col.Name.ToUpper() == MANDANT)
+				continue;
+			output.autoTabLn("/// <summary>");
+			output.autoTabLn("/// Standardvalidierung für das Feld " + GeneratorHelper.ConvertName(col.Name) + " der Entität " + objectname + ".");
+			output.autoTabLn("/// </summary>");
+			output.autoTabLn("/// <param name=\"pContext\">Der aktuelle <see cref=\"ClientContext\" />.</param>");
+			output.autoTabLn("/// <param name=\"pData\">Ein DataSet mit den zu validierenden Daten.</param>");
+			output.autoTabLn("/// <exception cref=\"ValidationException\">Wird geworfen, wenn ungültige Einträge in den Spalten gefunden wurden.</exception>");
+			output.autoTabLn("/// <exception cref=\"DAODataSetNullException\">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>");
+			output.autoTabLn("/// <exception cref=\"DAOInvalidTableNameException\">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>");
+			output.autoTabLn("/// <exception cref=\"DAOInvalidCurrentRowException\">Wird geworfen, wenn der Index größer als die Anzahl Datensätze in der Tabelle ist.</exception>");
+			output.autoTabLn("/// <remarks>");
+			output.autoTabLn("/// Es wird immer der erste Datensatz in der Tabelle <c>TD_" + pEntityName + "_List</c> validiert.");
+			output.autoTabLn("/// </remarks>");
+			output.autoTabLn("public void " + GeneratorHelper.ConvertName(col.Name) + "Validate(ClientContext pContext, DataSet pData)");
+			output.autoTabLn("{");
+			output.tabLevel  = 3;
+			output.autoTabLn(GeneratorHelper.ConvertName(col.Name) +"Validate(pContext, pData, 0);");
+			output.tabLevel = 2;
+			output.autoTabLn("}");
+			output.writeln("");
+			output.autoTabLn("/// <summary>");
+			output.autoTabLn("/// Standardvalidierung für das Feld " + GeneratorHelper.ConvertName(col.Name) + " der Entität " + objectname + ".");
+			output.autoTabLn("/// </summary>");
+			output.autoTabLn("/// <param name=\"pContext\">Der aktuelle <see cref=\"ClientContext\" />.</param>");
+			output.autoTabLn("/// <param name=\"pData\">Ein DataSet mit den zu validierenden Daten.</param>");
+			output.autoTabLn("/// <param name=\"pRowNum\">Der Index der Datenzeile, welche geprüft werden soll</param>");
+			output.autoTabLn("/// <exception cref=\"ValidationException\">Wird geworfen, wenn ungültige Einträge in den Spalten gefunden wurden.</exception>");
+			output.autoTabLn("/// <exception cref=\"DAODataSetNullException\">Wird geworfen, wenn das gekapselte DataSet <c>null</c> ist.</exception>");
+			output.autoTabLn("/// <exception cref=\"DAOInvalidTableNameException\">Wird geworfen, wenn der übergebene Tabellenname nicht im gekapselten DataSet existiert.</exception>");
+			output.autoTabLn("/// <exception cref=\"DAOInvalidCurrentRowException\">Wird geworfen, wenn der Index größer als die Anzahl Datensätze in der Tabelle ist.</exception>");
+			output.autoTabLn("public void " + GeneratorHelper.ConvertName(col.Name) + "Validate(ClientContext pContext, DataSet pData, int pRowNum)");
+			output.autoTabLn("{");			
+			output.tabLevel = 3;			
+			// Notwendige Prüfungen an Hand der Metadaten der Spalte bestimmen
+			if(col.IsInPrimaryKey)
+			{
+				output.autoTabLn("Validate_PrimaryKeyField(pContext,pData,pRowNum, " + col.Name.ToUpper() + ");");
+			}
+			else
+			{
+				if(col.IsNullable == false)
+				{
+					output.autoTabLn("Validate_RequiredField(pContext, pData, pRowNum, " + col.Name.ToUpper() + ");");
+				}
+				if(col.LanguageType.ToLower() == "datetime")
+				{
+					output.autoTabLn("Validate_DateField(pContext, pData, pRowNum, " + col.Name.ToUpper() + ");");
+				}
+				else if(col.LanguageType.ToLower() == "string")
+				{
+					output.autoTabLn("Validate_TextField(pContext, pData, pRowNum, " + col.Name.ToUpper() + ", " +  col.CharacterMaxLength + ");");
+				}
+				else if(col.LanguageType.ToLower() == "bool")
+				{
+					// Bit-Felder werden nur auf RequiredField geprüft
+				}
+				else if(col.LanguageType.ToLower() == "guid")
+				{
+					// Guid-Felder werden nur auf RequiredField geprüft
+				}
+				else // numerische Felder
+				{
+					output.autoTabLn("Validate_NumericField(pContext, pData, pRowNum, " + col.Name.ToUpper() + ", " + col.NumericPrecision + ", " + col.NumericScale + ");");
+				}
+			}
+			output.tabLevel = 2;
+			output.autoTabLn("}");
+			output.writeln("");
+			output.autoTabLn("/// <summary>");
+			output.autoTabLn("/// Standardvalidierung für das Feld " + GeneratorHelper.ConvertName(col.Name) + " der Entität " + objectname + ".");
+			output.autoTabLn("/// </summary>");
+			output.autoTabLn("/// <param name=\"pContext\">Der aktuelle <see cref=\"ClientContext\" />.</param>");
+			output.autoTabLn("/// <param name=\"pRow\">Eine DataRow mit den zu validierenden Daten.</param>");
+			output.autoTabLn("/// <exception cref=\"ValidationException\">Wird geworfen, wenn ungültige Einträge in den Spalten gefunden wurden.</exception>");
+			output.autoTabLn("/// <exception cref=\"BusinessLogicException\">Wird geworfen, wenn eine nicht explizit behandelte Exception aufgetreten ist.</exception>");
+			output.autoTabLn("public void " + GeneratorHelper.ConvertName(col.Name) + "Validate(ClientContext pContext, DataRow pRow)");
+			output.autoTabLn("{");
+			output.tabLevel = 3;
+			// Notwendige Prüfungen an Hand der Metadaten der Spalte bestimmen
+			if(col.IsInPrimaryKey)
+			{
+				output.autoTabLn("StandardValidator.ValidatePrimaryKeyField(pRow[" + col.Name.ToUpper() + "]);");
+			}
+			else
+			{
+				if(col.IsNullable == false)
+				{
+					output.autoTabLn("Validate_RequiredField(pContext, pRow, " + col.Name.ToUpper() + ");");
+				}
+				if(col.LanguageType.ToLower() == "datetime")
+				{
+					output.autoTabLn("Validate_DateField(pContext, pRow, " + col.Name.ToUpper() + ");");
+				}
+				else if(col.LanguageType.ToLower() == "string")
+				{
+					output.autoTabLn("Validate_TextField(pContext, pRow, " + col.Name.ToUpper() + ", " +  col.CharacterMaxLength + ");");
+				}
+				else if(col.LanguageType.ToLower() == "bool")
+				{
+					// Bit-Felder werden nur auf RequiredField geprüft
+				}
+				else if(col.LanguageType.ToLower() == "guid")
+				{
+					// Guid-Felder werden nur auf RequiredField geprüft
+				}
+				else // numerische Felder
+				{
+					output.autoTabLn("Validate_NumericField(pContext, pRow, " + col.Name.ToUpper() + ", " + col.NumericPrecision + ", " + col.NumericScale + ");");
+
+				}
+			}
+			output.tabLevel = 2;
+			output.autoTabLn("}");
+			output.writeln("");
+		}
+		output.tabLevel = oldTabLevel;
+	}
+
+	// Prüfen, ob Tabelle Spalte Mandant enthält
+	private bool CheckForMandantColumn(IColumns pCols, FunctionGenInfo pFunctionGenInfo)
+	{
+		if(null != pCols)
+		{
+			foreach(IColumn col in pCols)
+			{
+				if(col.Name.ToUpper() == MANDANT)
+				{
+					return true;
+				}
+			}
+		}
+		else if (null != pFunctionGenInfo)
+		{
+			foreach(TvfColumnInfo col in pFunctionGenInfo.FunctionReturnValueColumns)
+			{
+				if(col.Name.ToUpper() == MANDANT)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	// Prüfen, ob Tabelle Spalte Mandant enthält
+	private bool CheckForBuchungskreisColumn(IColumns pCols, FunctionGenInfo pFunctionGenInfo)
+	{
+		if (null != pCols)
+		{
+			foreach(IColumn col in pCols)
+			{
+				if(col.Name.ToUpper() == BUCHUNGSKREIS)
+				{
+					return true;
+				}
+			}
+		}
+		else if (null != pFunctionGenInfo)
+		{
+			foreach(TvfColumnInfo col in pFunctionGenInfo.FunctionReturnValueColumns)
+			{
+				if(col.Name.ToUpper() == BUCHUNGSKREIS)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	// Prüfen, ob Tabelle Spalte Sortierung enthält
+	private bool CheckForSortierungColumn(IColumns pCols, FunctionGenInfo pFunctionGenInfo)
+	{
+		if (null != pCols)
+		{
+			foreach(IColumn col in pCols)
+			{
+				if(col.Name.ToUpper() == SORTIERUNG)
+				{
+					return true;
+				}
+			}
+		}
+		else if (null != pFunctionGenInfo)
+		{
+			foreach(TvfColumnInfo col in pFunctionGenInfo.FunctionReturnValueColumns)
+			{
+				if(col.Name.ToUpper() == SORTIERUNG)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	// Prüfen, ob Tabelle Spalte Geloescht enthält
+	private bool CheckForGeloeschtColumn(IColumns pCols, FunctionGenInfo pFunctionGenInfo)
+	{
+		if (null != pCols)
+		{
+			foreach(IColumn col in pCols)
+			{
+				if(col.Name.ToUpper() == GELOESCHT)
+				{
+					return true;
+				}
+			}
+		}
+		else if (null != pFunctionGenInfo)
+		{
+			foreach(TvfColumnInfo col in pFunctionGenInfo.FunctionReturnValueColumns)
+			{
+				if(col.Name.ToUpper() == GELOESCHT)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	// Prüfen, ob Tabelle Spalte VERSION_NUM enthält
+	private bool CheckForVersionNumColumn(IColumns pCols, FunctionGenInfo pFunctionGenInfo)
+	{
+		if (null != pCols)
+		{
+			foreach(IColumn col in pCols)
+			{
+				if(col.Name.ToUpper() == VERSION_NUM)
+				{
+					return true;
+				}
+			}
+		}
+		else if (null != pFunctionGenInfo)
+		{
+			foreach(TvfColumnInfo col in pFunctionGenInfo.FunctionReturnValueColumns)
+			{
+				if(col.Name.ToUpper() == VERSION_NUM)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	// Prüfen, ob die Abfrage auf SICHTBARKEITSGRUPPE_ID eingeschränkt werden muss
+	private bool CheckForSichtbarkeitColumn(IColumns pCols, FunctionGenInfo pFunctionGenInfo)
+	{
+		if (null != pCols)
+		{
+			foreach(IColumn col in pCols)
+			{
+				if(col.Name.ToUpper() == SICHTBARKEIT)
+				{
+					return true;
+				}
+			}
+		}
+		else if (null != pFunctionGenInfo)
+		{
+			foreach(TvfColumnInfo col in pFunctionGenInfo.FunctionReturnValueColumns)
+			{
+				if(col.Name.ToUpper() == SICHTBARKEIT)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	// Prüfen, ob die Abfrage auf EXT_DATENGRUPPE_ID eingeschränkt werden muss.
+	private bool CheckForExtDatengruppeColumn(IColumns pCols, FunctionGenInfo pFunctionGenInfo)
+	{
+		if (null != pCols)
+		{
+			foreach (IColumn col in pCols)
+			{
+				if (col.Name.ToUpper() == EXT_DATENGRUPPE)
+					return true;
+			}
+		}
+		else if (null != pFunctionGenInfo)
+		{
+			foreach(TvfColumnInfo col in pFunctionGenInfo.FunctionReturnValueColumns)
+			{
+				if (col.Name.ToUpper() == EXT_DATENGRUPPE)
+					return true;
+			}
+		}
+		return false;
+	}
+	
+	// Wandelt die Spaltenliste für Datums-Zeit-Normalisierungen in eine ArrayList um.
+	private ArrayList GetNormTimeColumns(string pColumns)
+	{
+		string[] parts = pColumns.Split(',');
+		ArrayList columns = new ArrayList();
+		foreach(string col in parts)
+		{
+			columns.Add(col.Trim());
+		}
+		return columns;
+	}
+	
+	// Gibt 'true' zurück, wenn die angegebene Spalte eine zu normalisierende Bis-Spalte ist, 'false' sonst.
+	// Parameter:	pColumn = Name der zu testenden Spalte
+	// 				pColumns = Liste von Spaltennamen, kommagetrennt (z.B. info.NormTimeToColumns)
+	private bool IsColumnInList(string pColumn, string pColumns)
+	{
+		ArrayList toColumns = GetNormTimeColumns(pColumns);
+		foreach(string entry in toColumns)
+		{
+			if(pColumn.ToUpper() == entry.ToUpper())
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	// Gibt den Primary Key der Tabelle zurück
+	private string GetPrimaryKeyColumnName(string pColumns)
+	{
+		string[] parts = pColumns.Split(',');
+		if(parts.Length > 0)
+		{
+			return parts[0].Trim();
+		}
+		else
+		{
+			return string.Empty;
+		}
+	}
+}
+%>
+##|BODY_END

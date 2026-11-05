@@ -1,0 +1,471 @@
+<Configuration>
+  <SettingsComponent>
+    <string />
+    <integer />
+    <boolean>
+      <setting name="SolutionAnalysisEnabled">False</setting>
+    </boolean>
+  </SettingsComponent>
+  <NAntValidationSettings>
+    <NAntPath value="" />
+  </NAntValidationSettings>
+  <CompletionStatisticsManager>
+    <ItemStatistics item="Default">
+      <Item value="if" priority="55" />
+      <Item value="aTable" priority="11" />
+      <Item value="bool" priority="5" />
+      <Item value="false" priority="7" />
+      <Item value="halt" priority="0" />
+      <Item value="true" priority="9" />
+      <Item value="foreach" priority="14" />
+      <Item value="IColumn" priority="0" />
+      <Item value="col" priority="3" />
+      <Item value="DataColumn" priority="0" />
+      <Item value="MyMeta" priority="0" />
+      <Item value="Column" priority="0" />
+      <Item value="dsMetaData" priority="0" />
+      <Item value="private" priority="14" />
+      <Item value="mSqlConnection" priority="0" />
+      <Item value="new" priority="34" />
+      <Item value="SqlConnection" priority="3" />
+      <Item value="pMeta" priority="0" />
+      <Item value="mMetaData" priority="2" />
+      <Item value="throw" priority="2" />
+      <Item value="SqlCommand" priority="3" />
+      <Item value="DataSet" priority="6" />
+      <Item value="extendedProps" priority="2" />
+      <Item value="finally" priority="0" />
+      <Item value="sqlCon" priority="0" />
+      <Item value="string" priority="63" />
+      <Item value="conString" priority="5" />
+      <Item value="CopyTo" priority="1" />
+      <Item value="conStringArray" priority="3" />
+      <Item value="for" priority="1" />
+      <Item value="int" priority="10" />
+      <Item value="i" priority="7" />
+      <Item value="Length" priority="1" />
+      <Item value="tryf" priority="1" />
+      <Item value="aView" priority="0" />
+      <Item value="void" priority="6" />
+      <Item value="ref" priority="2" />
+      <Item value="return" priority="11" />
+      <Item value="pMetaDataRow" priority="5" />
+      <Item value="DataRow" priority="5" />
+      <Item value="in" priority="16" />
+      <Item value="pExtendedAttributesData" priority="2" />
+      <Item value="row" priority="7" />
+      <Item value="else" priority="2" />
+      <Item value="aRow" priority="36" />
+      <Item value="InspectColumns" priority="0" />
+      <Item value="pObjectName" priority="1" />
+      <Item value="TYPE_VIEW" priority="3" />
+      <Item value="null" priority="5" />
+      <Item value="mSqlConnnection" priority="6" />
+      <Item value="ConnectionState" priority="0" />
+      <Item value="retValue" priority="7" />
+      <Item value="case" priority="0" />
+      <Item value="e" priority="0" />
+      <Item value="grdData" priority="1" />
+      <Item value="sbStatus" priority="1" />
+      <Item value="MessageBox" priority="0" />
+      <Item value="MessageBoxButtons" priority="0" />
+      <Item value="sbStatusLabel" priority="4" />
+      <Item value="ListViewVirtualItemsSelectionRangeChangedEventHandler" priority="0" />
+      <Item value="stammdatenTabellen" priority="3" />
+      <Item value="List" priority="7" />
+      <Item value="mStammdatentabellen" priority="2" />
+      <Item value="GetStammdatenTabellen" priority="0" />
+      <Item value="Cursor" priority="8" />
+      <Item value="Cursors" priority="3" />
+      <Item value="var" priority="3" />
+      <Item value="from" priority="4" />
+      <Item value="where" priority="6" />
+      <Item value="tab" priority="6" />
+      <Item value="IFeatureSupport" priority="0" />
+      <Item value="bla" priority="2" />
+      <Item value="valid" priority="0" />
+      <Item value="select" priority="5" />
+      <Item value="StringEndsWith" priority="0" />
+      <Item value="myRow" priority="4" />
+      <Item value="entityname" priority="0" />
+      <Item value="ForeColor" priority="0" />
+      <Item value="ColorDepth" priority="0" />
+      <Item value="let" priority="2" />
+      <Item value="continue" priority="3" />
+      <Item value="fixed" priority="0" />
+      <Item value="sqlAdapter" priority="0" />
+      <Item value="mSqlConnnectionZesaEntw" priority="1" />
+      <Item value="cmd" priority="0" />
+      <Item value="try" priority="1" />
+      <Item value="sqlComamnd" priority="0" />
+      <Item value="normTimefromDropped" priority="0" />
+      <Item value="StringFormatFlags" priority="0" />
+      <Item value="normtimeColumns" priority="0" />
+      <Item value="normtimeColumn" priority="0" />
+      <Item value="StringBuilder" priority="1" />
+      <Item value="sbSyncLog" priority="2" />
+      <Item value="currentColumnForLog" priority="1" />
+      <Item value="normtimeFromColumn" priority="1" />
+      <Item value="currentColumn" priority="5" />
+      <Item value="public" priority="9" />
+      <Item value="extendedPropsTable" priority="0" />
+      <Item value="isStammdatenuebernahme" priority="1" />
+      <Item value="BLGeneratorSettings" priority="4" />
+      <Item value="mBlGeneratorSettings" priority="3" />
+      <Item value="FILENAME_SETTINGS" priority="0" />
+      <Item value="FileInfo" priority="3" />
+      <Item value="fi" priority="2" />
+      <Item value="ret" priority="6" />
+      <Item value="SerializeSettings" priority="0" />
+      <Item value="DeserializeSettings" priority="0" />
+      <Item value="List&lt;string&gt;" priority="1" />
+      <Item value="pSqlConnection" priority="1" />
+      <Item value="SaveMetadataInDatabase" priority="2" />
+      <Item value="mSqlConnnectionZesaInteg" priority="0" />
+      <Item value="mSqlConnnectionZesaProd" priority="0" />
+      <Item value="onlySelectedForGenerate" priority="0" />
+      <Item value="Save" priority="0" />
+      <Item value="IForeignKey" priority="3" />
+      <Item value="fk" priority="5" />
+      <Item value="ArrayList" priority="29" />
+      <Item value="fks" priority="2" />
+      <Item value="ITable" priority="3" />
+      <Item value="KeyValuePair" priority="3" />
+      <Item value="KeyValuePair&lt;int,string&gt;" priority="3" />
+      <Item value="kvp" priority="11" />
+      <Item value="List&lt;KeyValuePair&lt;int,string&gt;&gt;" priority="0" />
+      <Item value="kvpList" priority="3" />
+      <Item value="GetForeignKeys" priority="1" />
+      <Item value="KeyValuePairComparer" priority="0" />
+      <Item value="myList" priority="7" />
+      <Item value="DomainUpDown" priority="0" />
+      <Item value="do" priority="0" />
+      <Item value="pTable" priority="1" />
+      <Item value="while" priority="0" />
+      <Item value="fkList" priority="4" />
+      <Item value="tempFkList" priority="0" />
+      <Item value="SelectionRangeConverter" priority="1" />
+      <Item value="order" priority="0" />
+      <Item value="tableName" priority="0" />
+      <Item value="valuePair" priority="0" />
+      <Item value="nameExist" priority="4" />
+      <Item value="pForeignKeyList" priority="1" />
+      <Item value="SortedList" priority="1" />
+      <Item value="pFkListe" priority="1" />
+      <Item value="testList" priority="0" />
+      <Item value="GetDistinctForeignKeyList" priority="0" />
+      <Item value="BLGeneratorUI" priority="0" />
+      <Item value="static" priority="0" />
+      <Item value="GeneratorHelper" priority="0" />
+      <Item value="settings" priority="0" />
+      <Item value="Environment" priority="6" />
+      <Item value="mTfsWorkspace" priority="1" />
+      <Item value="Exception" priority="0" />
+      <Item value="pFullFilenameAndPath" priority="1" />
+      <Item value="dbRoot" priority="0" />
+      <Item value="ITables" priority="0" />
+      <Item value="bli" priority="3" />
+      <Item value="blo" priority="0" />
+      <Item value="MetaDataRow" priority="0" />
+      <Item value="curMetaRow" priority="0" />
+      <Item value="Dictionary" priority="0" />
+      <Item value="Dictionary&lt;string,List&lt;string&gt;&gt;" priority="1" />
+      <Item value="StammdatenuebernahmeInfo" priority="6" />
+      <Item value="sInfo" priority="11" />
+      <Item value="break" priority="1" />
+      <Item value="table" priority="1" />
+      <Item value="metaRow" priority="2" />
+      <Item value="foreignKeys" priority="2" />
+      <Item value="o" priority="1" />
+      <Item value="Queue" priority="0" />
+      <Item value="this" priority="0" />
+      <Item value="isAliasKennung" priority="0" />
+      <Item value="mAliasKennung" priority="0" />
+      <Item value="info" priority="4" />
+      <Item value="fkRow" priority="1" />
+      <Item value="SystemParameter" priority="0" />
+      <Item value="Diagnostics" priority="0" />
+      <Item value="Debugger" priority="0" />
+      <Item value="mStammdatenWithForeignKeys" priority="5" />
+      <Item value="s" priority="2" />
+      <Item value="fkInfos" priority="0" />
+      <Item value="as" priority="0" />
+      <Item value="test" priority="0" />
+      <Item value="insertAt" priority="1" />
+      <Item value="File" priority="0" />
+      <Item value="chkStammdatenuebernahmeIgnorieren" priority="0" />
+      <Item value="erweiterterHinweis" priority="1" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:MyMeta.ITable">
+      <Item value="Name" priority="8" />
+      <Item value="Columns" priority="1" />
+      <Item value="ForeignKeys" priority="7" />
+      <Item value="PrimaryKeys" priority="1" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.String">
+      <Item value="Equals" priority="16" />
+      <Item value="Split" priority="1" />
+      <Item value="Contains" priority="1" />
+      <Item value="ToLower" priority="11" />
+      <Item value="Length" priority="0" />
+      <Item value="Replace" priority="1" />
+      <Item value="EndsWith" priority="0" />
+      <Item value="ToUpper" priority="9" />
+      <Item value="Trim" priority="4" />
+      <Item value="ToString" priority="3" />
+      <Item value="All" priority="0" />
+      <Item value="Select" priority="0" />
+      <Item value="ToLowerInvariant" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:MyMeta.IColumn">
+      <Item value="GlobalProperties" priority="0" />
+      <Item value="Table" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:MyMeta.dbRoot">
+      <Item value="ConnectionString" priority="1" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Data.SqlClient.SqlDataAdapter">
+      <Item value="Fill" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Data.SqlClient.SqlConnection">
+      <Item value="Close" priority="0" />
+      <Item value="State" priority="0" />
+      <Item value="Open" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:@System.String">
+      <Item value="Empty" priority="8" />
+      <Item value="IsNullOrEmpty" priority="8" />
+      <Item value="Format" priority="4" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Data.DataSet">
+      <Item value="Tables" priority="6" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Data.DataTable">
+      <Item value="Rows" priority="4" />
+      <Item value="TableName" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Object">
+      <Item value="ToString" priority="5" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:EHA.ZESA.Util.GeneratorUI.MetaData+MetaDataRow">
+      <Item value="LOV" priority="0" />
+      <Item value="LovColumns" priority="1" />
+      <Item value="Stammdatenuebernahme" priority="11" />
+      <Item value="ObjectName" priority="11" />
+      <Item value="EntityName" priority="3" />
+      <Item value="NormTimeFromColumns" priority="2" />
+      <Item value="Type" priority="3" />
+      <Item value="Generate" priority="1" />
+      <Item value="Namespace" priority="3" />
+      <Item value="Table" priority="2" />
+      <Item value="ALIASKENNUNG" priority="6" />
+      <Item value="AliasKennungColumn" priority="9" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:@System.Convert">
+      <Item value="ToBoolean" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:@System.Data.ConnectionState">
+      <Item value="Open" priority="0" />
+      <Item value="Closed" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Data.DataTableCollection">
+      <Item value="Count" priority="1" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Data.DataRowCollection">
+      <Item value="Count" priority="1" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:EHA.ZESA.Util.GeneratorUI.GenInfo">
+      <Item value="Stammdatenuebernahme" priority="0" />
+      <Item value="AliasKennung" priority="0" />
+      <Item value="AliasKennungColumn" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Windows.Forms.DataGrid">
+      <Item value="CurrentCell" priority="0" />
+      <Item value="TableStyles" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Windows.Forms.DataGridCell">
+      <Item value="ColumnNumber" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Windows.Forms.DataGridTableStyle">
+      <Item value="GridColumnStyles" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Windows.Forms.GridColumnStylesCollection">
+      <Item value="Indexer" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Windows.Forms.DataGridColumnStyle">
+      <Item value="HeaderText" priority="0" />
+      <Item value="MappingName" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Windows.Forms.StatusStrip">
+      <Item value="Text" priority="1" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:@System.Windows.Forms.MessageBox">
+      <Item value="Show" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:@System.Windows.Forms.MessageBoxButtons">
+      <Item value="OK" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Windows.Forms.ToolStripStatusLabel">
+      <Item value="Text" priority="2" />
+      <Item value="ForeColor" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Collections.Generic.List`1">
+      <Item value="Add" priority="4" />
+      <Item value="Contains" priority="0" />
+      <Item value="Sort" priority="0" />
+      <Item value="Reverse" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Windows.Forms.Cursor">
+      <Item value="Current" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:@System.Windows.Forms.Cursors">
+      <Item value="WaitCursor" priority="2" />
+      <Item value="Default" priority="2" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:@System.Data.Linq.SqlClient.SqlMethods">
+      <Item value="Like" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Collections.Generic.IEnumerable`1">
+      <Item value="Count" priority="3" />
+      <Item value="Select" priority="0" />
+      <Item value="First" priority="3" />
+      <Item value="Any" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Drawing.Color">
+      <Item value="R" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:@System.Drawing.Color">
+      <Item value="Black" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Data.SqlClient.SqlCommand">
+      <Item value="ExecuteNonQuery" priority="1" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Text.StringBuilder">
+      <Item value="AppendLine" priority="0" />
+      <Item value="ToString" priority="0" />
+      <Item value="Length" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.IO.FileInfo">
+      <Item value="Exists" priority="2" />
+      <Item value="Delete" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:EHA.ZESA.Util.GeneratorUI.BLGeneratorSettings">
+      <Item value="DbServerZesaInteg" priority="1" />
+      <Item value="DbServerZesaProd" priority="0" />
+      <Item value="IntitalCatalogZesaInteg" priority="1" />
+      <Item value="EnitaetenAusnahmeDatenuebernahme" priority="3" />
+      <Item value="TfsServerUrl" priority="1" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:MyMeta.IForeignKeys">
+      <Item value="CopyTo" priority="0" />
+      <Item value="Count" priority="1" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:MyMeta.IForeignKey">
+      <Item value="ForeignTable" priority="0" />
+      <Item value="PrimaryTable" priority="2" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Collections.ArrayList">
+      <Item value="Add" priority="2" />
+      <Item value="Count" priority="7" />
+      <Item value="AddRange" priority="3" />
+      <Item value="Contains" priority="1" />
+      <Item value="Insert" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Int32">
+      <Item value="ToString" priority="0" />
+      <Item value="CompareTo" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Collections.Generic.KeyValuePair`2">
+      <Item value="Key" priority="4" />
+      <Item value="Value" priority="5" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Collections.SortedList">
+      <Item value="Add" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:@EHA.ZESA.Util.GeneratorUI.GeneratorHelper">
+      <Item value="DeserializeSettings" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:@System.Environment">
+      <Item value="MachineName" priority="1" />
+      <Item value="UserName" priority="2" />
+      <Item value="UserDomainName" priority="1" />
+      <Item value="CurrentDirectory" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:Microsoft.TeamFoundation.VersionControl.Client.Workspace">
+      <Item value="PendEdit" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Collections.Generic.Dictionary`2">
+      <Item value="Add" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:EHA.ZESA.Util.GeneratorUI.StammdatenuebernahmeInfo">
+      <Item value="ObjectName" priority="5" />
+      <Item value="Namespace" priority="3" />
+      <Item value="ForeignKeys" priority="4" />
+      <Item value="AliasKennungColumn" priority="1" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:EHA.ZESA.Util.GeneratorUI.BLGeneratorUI">
+      <Item value="Cursor" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Data.EnumerableRowCollection`1">
+      <Item value="First" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:@System.Diagnostics.Debugger">
+      <Item value="Launch" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:@System.IO.File">
+      <Item value="WriteAllText" priority="0" />
+    </ItemStatistics>
+    <ItemStatistics item="Qualified:System.Windows.Forms.CheckBox">
+      <Item value="Checked" priority="0" />
+    </ItemStatistics>
+  </CompletionStatisticsManager>
+  <RecentFiles>
+    <RecentFiles>
+      <File id="719A8B0C-FBD5-4622-A273-289B43B1F631/f:AssemblyInfo.cs" caret="1883" fromTop="26" />
+      <File id="719A8B0C-FBD5-4622-A273-289B43B1F631/f:UITester.cs" caret="0" fromTop="0" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:TfsHelper.cs" caret="2923" fromTop="32" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:StammdatenuebernahmeInfo.cs" caret="1125" fromTop="43" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:GenInfo.cs" caret="798" fromTop="23" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:MetaData.cs" caret="0" fromTop="0" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:GeneratorHelper.cs" caret="5323" fromTop="39" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:AssemblyInfo.cs" caret="883" fromTop="28" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:MetaData.Designer.cs" caret="472" fromTop="0" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="60997" fromTop="0" />
+    </RecentFiles>
+    <RecentEdits>
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="62573" fromTop="48" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="44453" fromTop="140" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="27656" fromTop="15" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="30746" fromTop="14" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="38289" fromTop="16" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="50396" fromTop="34" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="59473" fromTop="18" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="58671" fromTop="28" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="58977" fromTop="21" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="51627" fromTop="11" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="53300" fromTop="25" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="48492" fromTop="17" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="3511" fromTop="16" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="3318" fromTop="10" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="2339" fromTop="36" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="2528" fromTop="39" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="27007" fromTop="27" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:GeneratorHelper.cs" caret="306" fromTop="14" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:GeneratorHelper.cs" caret="5323" fromTop="39" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="25048" fromTop="49" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="45258" fromTop="6" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="44851" fromTop="6" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="47430" fromTop="21" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="5939" fromTop="27" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="25048" fromTop="27" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="73608" fromTop="44" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:AssemblyInfo.cs" caret="883" fromTop="28" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:MetaData.Designer.cs" caret="25112" fromTop="0" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="74300" fromTop="56" />
+      <File id="47D6D310-CBE7-4A9B-A07E-242405CED292/f:BLGeneratorUI.cs" caret="65240" fromTop="0" />
+    </RecentEdits>
+  </RecentFiles>
+  <UnitTestRunner>
+    <Providers />
+  </UnitTestRunner>
+</Configuration>

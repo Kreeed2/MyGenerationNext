@@ -1,0 +1,334 @@
+﻿##|TYPE Template
+##|UNIQUEID 6c900437-da68-4ceb-9be4-68e7af1a3a36
+##|TITLE ZESARemotingServiceInterface
+##|NAMESPACE 
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE None
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll %>
+<%#NAMESPACE System, System.Text, System.Collections, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using EHA.ZESA.Util.GeneratorUI;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	private const string VERSION_NUM = "VERSION_NUM";
+	
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+	  if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		ArrayList data = input["Data"] as ArrayList;
+		ArrayList csFiles = new ArrayList();
+		string filepath;
+
+		foreach(GenInfo info in data)
+		{
+		  IColumns cols;
+			string entityname;
+			string entitynameUpper;
+			
+			// Ein RemotingService-Interface wird nur für Tabellen generiert
+			if(info.ObjectType == "Table")
+			{
+				ITable table = MyMeta.DefaultDatabase.Tables[info.ObjectName];
+				cols = table.Columns;
+				entityname = GeneratorHelper.ConvertName(info.EntityName);
+				entitynameUpper = info.EntityName;
+				
+				// Zeiger ob eine Versionsnummer und damit die Updatelogik über
+				// Prozedur vorhanden ist
+				bool hasVersionNum = CheckForVersionNumColumn(cols);
+			
+				// Klassennamen bilden
+				string classname = "I" + entityname + "Service";
+				string fullClassname = "EHA.ZESA.Communication.RemotingServiceInterface." + info.Namespace + "." + entityname + "." + classname;
+				string fileNameInProject = info.Namespace + "\\" + entityname + "\\" + classname + ".cs";
+
+				// Dateinamen bilden
+				filepath = input["TargetPath"].ToString();
+				if (!filepath.EndsWith("\\") ) filepath += "\\";
+				string filePathProjectFile = filepath + "Communication\\RemotingServiceInterface\\RemotingServiceInterface.csproj";
+				filepath += "Communication\\RemotingServiceInterface\\" + info.Namespace + "\\" + entityname + "\\";
+				
+				// Verzeichnis bei Bedarf anlegen
+				if(!Directory.Exists(filepath))
+				{
+					Directory.CreateDirectory(filepath);
+				}
+				string filename = filepath + classname + ".cs";
+				// File ausschecken
+				TfsHelper.Instance.CheckOut(filename);
+				
+				// Dateiname für Logging zwischenspeichern
+				csFiles.Add(fullClassname);
+				
+				// geschützten Bereich in vorhandenem Source definieren
+				output.setPreserveSource(filename, "/***", "***/");
+if (info.UsesOldDataSetLogic){
+%>using System.Data;
+<%}%>
+using EHA.ZESA.Communication.RemotingServiceInterface.Allgemein.ClientContext;
+using EHA.ZESA.Communication.RemotingServiceInterface.DAO.<%=info.Namespace%>.<%=entityname%>;
+
+using EHA.ZESA.Components.ErrorHandling;
+
+<% output.preserve("Individuelle_Usings");%>
+
+namespace EHA.ZESA.Communication.RemotingServiceInterface.<%=info.Namespace%>.<%=entityname%>
+{
+	/// <summary>
+	/// Interface für die Service-Methoden der Entität <%=info.ObjectName%>.
+	/// </summary>
+	/// <remarks>
+	/// <para><b>Historie</b></para>
+	/// <div class="tablediv">
+	/// <table class="dtTABLE" cellspacing="0">
+	///		<tr>
+	///			<th width="20%">Autor</th>
+	///			<th width="20%">Datum</th>
+	///			<th width="60%">Bemerkungen</th>
+	///		</tr>
+	///		<tr>
+	///			<td width="20%">ZESABusinesslogicGenerator</td>
+	///			<td width="20%"><%=DateTime.Now.ToString()%></td>
+	///			<td width="60%">Erstellt</td>
+	///		</tr>
+	/// </table>
+	/// </div>
+	/// </remarks>
+	public interface <%=classname%> : IService
+	{
+		/// <summary>
+		/// Liest eine Liste aller vorhandenen Datensätze der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <returns>Eine <see cref="<%=entityname%>DAO"/>-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelesen werden konnten.</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		<%=entityname%>DAO GetList(ClientContext pContext);
+
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Liest eine Liste aller vorhandenen Datensätze der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <returns>Eine <see cref="DataSet"/>-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelesen werden konnten.</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		DataSet Get<%=entityname%>List(ClientContext pContext);
+<%}%>
+		/// <summary>
+		/// Liest einen Datensatz der Tabelle <%=info.ObjectName%> über den Primärschlüssel.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pId">Der Primärschlüssel des gesuchten Datensatzes.</param>
+		/// <returns>Eine <see cref="<%=entityname%>DAO"/>-Instanz mit dem gelesenen Datensatz.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelesen werden konnten.</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		<%=entityname%>DAO GetById(ClientContext pContext, string pId);
+
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Liest einen Datensatz der Tabelle <%=info.ObjectName%> über den Primärschlüssel.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pId">Der Primärschlüssel des gesuchten Datensatzes.</param>
+		/// <returns>Eine <see cref="DataSet"/>-Instanz mit dem gelesenen Datensatz.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelesen werden konnten.</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		DataSet Get<%=entityname%>ById(ClientContext pContext, string pId);
+<%}%>
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Ein <see cref="<%=entityname%>DAO" /> mit den Parameterwerten.</param>
+		/// <returns>Eine <see cref="<%=entityname%>DAO"/>-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelesen werden konnten.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der im <see cref="<%=entityname%>DAO" /> angegebenen
+		/// Werte eingeschränkt. Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> 
+		/// übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		<%=entityname%>DAO GetByParam(ClientContext pContext, <%=entityname%>DAO pParams);
+
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Eine <see cref="<%=entityname%>Parameter" />-Struktur mit den Parameterwerten.</param>
+		/// <returns>Eine <see cref="DataSet"/>-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelesen werden konnten.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der in der Struktur <see cref="<%=entityname%>Parameter" /> angegebenen
+		/// Werte eingeschränkt. Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> 
+		/// übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		DataSet Get<%=entityname%>ByParam(ClientContext pContext, <%=entityname%>Parameter pParams);
+<%}%>
+		/// <summary>
+		/// Erzeugt einen neuen, mit Defaultwerten initialisierten Datensatz für die Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <returns>Eine <see cref="<%=entityname%>DAO"/>-Instanz mit dem neuen Datensatz.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn der neue Satz nicht erzeugt werden konnte.</exception>
+		/// <remarks>Der Primärschlüssel, Mandant und Buchungskreis sind bereits gefüllt.</remarks>
+		<%=entityname%>DAO GetNewRecord(ClientContext pContext);
+
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Erzeugt einen neuen, mit Defaultwerten initialisierten Datensatz für die Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <returns>Eine <see cref="DataSet"/>-Instanz mit dem neuen Datensatz.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn der neue Datensatz nicht angelegt werden konnte.</exception>
+		/// <remarks>
+		/// Der Primärschlüssel, Mandant und Buchungskreis sind bereits gefüllt.
+		/// </remarks>
+		DataSet Get<%=entityname%>NewRecord(ClientContext pContext);
+<%}%>
+		/// <summary>
+		/// Aktualisiert die übergebenen Datensätze in der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pData">Eine <see cref="<%=entityname%>DAO"/>-Instanz mit den zu aktualisierenden Daten.</param>
+		/// <returns>Die Anzahl der geschriebenen Datensätze.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn der Update fehlgeschlagen ist.</exception>
+		/// <remarks>
+		/// Die Methode führt sowohl Updates als auch Inserts in der Datenbank aus. Das übergebene
+		/// DataSet darf durchaus mehrere Datensätze enthalten. Die Struktur des DataSets muss der
+		/// Tabellenstruktur entsprechen.
+		/// </remarks>
+		int Update(ClientContext pContext, <%=entityname%>DAO pData);
+
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Aktualisiert die übergebenen Datensätze in der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pData">Eine <see cref="DataSet"/>-Instanz mit den zu aktualisierenden Daten.</param>
+		/// <returns>Die Anzahl der geschriebenen Datensätze.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht aktualisiert werden konnten.</exception>
+		/// <remarks>
+		/// Die Methode führt sowohl Updates als auch Inserts in der Datenbank aus. Das übergebene
+		/// DataSet darf durchaus mehrere Datensätze enthalten. Die Struktur des DataSets muss der
+		/// Tabellenstruktur entsprechen.
+		/// </remarks>
+		int Update<%=entityname%>(ClientContext pContext, DataSet pData);
+<%}%>
+		/// <summary>
+		/// Löscht einen Datensatz aus der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pPrimaryKey">Der Primärschlüssel des zu Löschenden Datensatzes.</param>
+		/// <returns>Die Anzahl der gelöschten Sätze.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelöscht werden konnten.</exception>
+		int Delete<%=entityname%>(ClientContext pContext, string pPrimaryKey);
+		
+<%if(hasVersionNum){%>
+		/// <summary>
+		/// Löscht mehrere Datensätze aus der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pDao">ein Dao mit den zu löschenden Datensätzen.</param>
+		/// <returns>Die Anzahl der gelöschten Sätze.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelöscht werden konnten.</exception>
+		int Delete(ClientContext pContext, <%=entityname%>DAO pDao);
+<%}%>
+		
+<%
+		// Geschützten Bereich aus alten Source übernehmen
+		output.preserve("Individuelle_Anpassungen");
+%>
+	}
+}
+<%
+				// neue Dateien der Projektdatei hinzufügen
+				bool addToProject = false;
+				if(!File.Exists(filename))
+					addToProject = true;
+			
+				// Save File
+				output.save(filename, false);
+				output.clear();	
+			
+				// neue Dateien der Projektdatei hinzufügen
+				if(addToProject)
+				{
+					// Projektdatei auschecken
+					TfsHelper.Instance.CheckOut(filePathProjectFile);
+					GeneratorHelper.AddFileToProject(Project.RemotingServiceInterface, fileNameInProject);
+					TfsHelper.Instance.Add(filename);
+				}	
+			}
+		}
+		// Logging
+		output.clear();
+		output.writeln("Generierung Serviceinterface-Klassen erfolgreich beendet...");
+		output.writeln("");
+		output.writeln("Ausgabeverzeichnis = " + input["TargetPath"]);
+		output.writeln("");
+		output.writeln("Folgende Dateien wurden generiert:" );
+		output.writeln("");
+		foreach(string csFile in csFiles)
+		{
+		    output.writeln(csFile);
+		}
+		output.writeln("");
+		output.writeln("==> Ende <==");
+		output.writeln("");
+		string logname = input["TargetPath"].ToString();
+		if (!logname.EndsWith("\\") ) logname += "\\";
+		logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+		output.append(logname);
+    output.clear();	
+		MyMeta.SaveUserMetaData();
+	}
+	
+	// Prüfen, ob Tabelle Spalte VERSION_NUM enthält
+	private bool CheckForVersionNumColumn(IColumns pCols)
+	{
+		foreach(IColumn col in pCols)
+		{
+			if(col.Name.ToUpper() == VERSION_NUM)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+}
+%>
+##|BODY_END

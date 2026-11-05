@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BLGeneratorSettings xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <AbweichenderTfsWorkspace>CS002864</AbweichenderTfsWorkspace>
+  <TfsServerUrl>http://ehavtfs01:8080/tfs/EHA_ITSCollection</TfsServerUrl>
+  <EnitaetenAusnahmeDatenuebernahme>
+    <string>Ausnahmen (Tabellenname) hier eintragen</string>
+  </EnitaetenAusnahmeDatenuebernahme>
+  <EnitaetenPflichDatenuebernahme>
+    <string>BA_ANWENDUNGSFALL</string>
+    <string>BA_DOMAENE</string>
+    <string>BA_FUNKTION</string>
+    <string>BA_FUNKTION_ANWENDUNGSFALL_DOMAENE</string>
+    <string>BA_ONLINEHILFE</string>
+  </EnitaetenPflichDatenuebernahme>
+</BLGeneratorSettings>

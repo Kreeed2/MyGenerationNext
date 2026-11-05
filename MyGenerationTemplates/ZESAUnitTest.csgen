@@ -1,0 +1,205 @@
+﻿##|TYPE Template
+##|UNIQUEID 15db3250-fa65-4426-a638-484b134903f8
+##|TITLE ZESADAOUnitTest
+##|NAMESPACE 
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE C#
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll %>
+<%#NAMESPACE System, System.Text, System.Collections, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using EHA.ZESA.Util.GeneratorUI;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+	  if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		ArrayList data = input["Data"] as ArrayList;
+		ArrayList csFiles = new ArrayList();
+		string filepath;
+
+		foreach(GenInfo info in data)
+		{
+		  IColumns cols;
+			string entityname;
+			string entitynameUpper;
+			
+			// Differenzen zwischen ITable und IView eliminieren
+			if(info.ObjectType == "Table")
+			{
+				ITable table = MyMeta.DefaultDatabase.Tables[info.ObjectName];
+				cols = table.Columns;
+				entityname = GeneratorHelper.ConvertName(info.EntityName);
+				entitynameUpper = info.EntityName;
+			}
+			else
+			{
+				IView view = MyMeta.DefaultDatabase.Views[info.ObjectName];
+				cols = view.Columns;
+				entityname = GeneratorHelper.ConvertName(info.ObjectName);
+				entitynameUpper = info.ObjectName;
+			}
+			
+			// Klassennamen bilden
+			string classname     = entityname + "Test";
+			string fullClassname = "EHA.ZESA.Test.DAO." + info.Namespace + "." + classname;
+
+			// dateinamen bilden
+			filepath = input["TargetPath"].ToString();
+			if (!filepath.EndsWith("\\") ) filepath += "\\";
+			filepath += "DAO\\" + info.Namespace + "\\";
+			
+			// Verzeichnis bei Bedarf anlegen
+			if(!Directory.Exists(filepath))
+			{
+				Directory.CreateDirectory(filepath);
+			}
+			string filename = filepath + entityname + "Test.cs";
+			
+			// File ausschecken
+			TfsHelper.Instance.CheckOut(filename);
+			
+			// dateinamen für Logging zwischenspeichern
+			csFiles.Add(fullClassname);
+			
+%>using System;
+using System.Data;
+
+using EHA.ZESA.Communication.RemotingServiceInterface.Allgemein.ClientContext;
+using EHA.ZESA.Communication.RemotingServiceInterface.DAO.<%=info.Namespace%>.<%=entityname%>;
+
+using EHA.ZESA.Components.DbReader;
+
+using EHA.ZESA.Server.DAO.<%=info.Namespace%>;
+
+using NUnit.Framework;
+
+namespace EHA.ZESA.Test.DAO.<%=info.Namespace%>
+{
+	/// <summary>
+	/// Unit-Tests für das VerifiedDAO zur Entität <%=info.ObjectName%>.
+	/// </summary>
+	/// <remarks>
+	/// <para><b>Historie</b></para>
+	/// <div class="tablediv">
+	/// <table class="dtTABLE" cellspacing="0">
+	///		<tr>
+	///			<th width="20%">Autor</th>
+	///			<th width="20%">Datum</th>
+	///			<th width="60%">Bemerkungen</th>
+	///		</tr>
+	///		<tr>
+	///			<td width="20%">ZESAUnitTestGenerator</td>
+	///			<td width="20%"><%=DateTime.Now.ToShortDateString()%></td>
+	///			<td width="60%">Erstellt</td>
+	///		</tr>
+	/// </table>
+	/// </div>
+	/// </remarks>
+	[TestFixture]
+	public class <%=entityname%>Test
+	{
+<%
+		output.preserve("Individuelle_Variablen");
+%>
+		[SetUp]
+		public void Setup()
+		{
+			DbReader.Instance.Init(false);
+		}
+
+		[Test]
+		public void <%=entityname%>DAOTest()
+		{
+			<%=entityname%>DAO data = null;
+			data = new <%=BuildClassname(entityname)%>().GetSingleRecordForUnitTest(ClientContext.getInstance(ClientContext.TEST));
+			if(0 == data.GetRecordCount())
+			{
+				Assert.Ignore("Tabelle <%=info.ObjectName%> enthält keine Daten...");
+			}
+
+			// Zugriff auf die Daten
+			object test = null;
+<% foreach(IColumn col in cols)
+   { %>			test = data.<%=GeneratorHelper.ConvertName(col.Name)%>;
+<% } %>
+			// Zugriff auf die String-Repräsentation der Daten
+			string strTest = string.Empty;
+<% foreach(Column col in cols)
+   { %>			strTest = data.Str<%=GeneratorHelper.ConvertName(col.Name)%>;
+<% } %>
+		}
+
+	}
+}<%
+			output.save(filename, false);
+      output.clear();	
+		}
+		// Logging
+		output.clear();
+		output.writeln("Generierung Unittest-Klassen erfolgreich beendet...");
+		output.writeln("");
+		output.writeln("Ausgabeverzeichnis = " + input["TargetPath"]);
+		output.writeln("");
+		output.writeln("Folgende Dateien wurden generiert:" );
+		output.writeln("");
+		foreach(string csFile in csFiles)
+		{
+		    output.writeln(csFile);
+		}
+		output.writeln("");
+		output.writeln("==> Ende <==");
+		output.writeln("");
+		string logname = input["TargetPath"].ToString();
+		if (!logname.EndsWith("\\") ) logname += "\\";
+		logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+		output.append(logname);
+		output.clear();
+		MyMeta.SaveUserMetaData();
+	}
+
+	// Für die Businesslogik-Klasse Vertrag muss der Namespace vorangestellt werden
+	private string BuildClassname(string pEntityName)
+	{
+		if(pEntityName == "Vertrag")
+			return "Server.DAO.Vertrag.Vertrag";
+		else if(pEntityName == "Version")
+			return "Server.DAO.Koma.Version";
+		else
+			return pEntityName;
+	}
+}
+%>
+##|BODY_END

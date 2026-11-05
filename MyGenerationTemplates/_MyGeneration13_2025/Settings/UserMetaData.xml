@@ -1,0 +1,19 @@
+<MyMeta>
+  <Global>
+    <Databases>
+      <Database p="ZESA_ENTW">
+        <Table>
+          <Properties />
+        </Table>
+        <Column>
+          <Properties />
+        </Column>
+      </Database>
+      <Database p="ZESA_INTEG">
+        <ForeignKey>
+          <Properties />
+        </ForeignKey>
+      </Database>
+    </Databases>
+  </Global>
+</MyMeta>

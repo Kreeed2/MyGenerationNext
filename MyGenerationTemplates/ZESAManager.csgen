@@ -1,0 +1,788 @@
+﻿##|TYPE Template
+##|UNIQUEID dd45711c-5904-4ec6-a893-9b4c5cde5132
+##|TITLE ZESAManager
+##|NAMESPACE 
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE None
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll %>
+<%#NAMESPACE System, System.Text, System.Collections, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using EHA.ZESA.Util.GeneratorUI;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	private const string VERSION_NUM = "VERSION_NUM";
+	
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+	  if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		ArrayList data = input["Data"] as ArrayList;
+		ArrayList csFiles = new ArrayList();
+		string filepath;
+
+		foreach(GenInfo info in data)
+		{
+		  IColumns cols;
+			string entityname;
+			string entitynameUpper;
+			
+			// Managerklassen werden nur für Tabellen angelegt
+			if(info.ObjectType == "Table")
+			{
+				ITable table = MyMeta.DefaultDatabase.Tables[info.ObjectName];
+				cols = table.Columns;
+				entityname = GeneratorHelper.ConvertName(info.EntityName);
+				entitynameUpper = info.EntityName;
+				
+				// Zeiger ob eine Versionsnummer und damit die Updatelogik über
+				// Prozedur vorhanden ist
+				bool hasVersionNum = CheckForVersionNumColumn(cols);
+			
+				// Klassennamen bilden
+				string classname     = entityname + "Manager";
+				string fullClassname = "EHA.ZESA.Server.BusinessFacade." + info.Namespace + "." + classname;
+				string fileNameInProject = "BusinessFacade\\" + info.Namespace + "\\" + classname + ".cs";
+
+				// dateinamen bilden
+				filepath = input["TargetPath"].ToString();
+				if (!filepath.EndsWith("\\") ) filepath += "\\";
+				string filePathProjectFile = filepath + "Server\\ZESAServer\\ZESAServer.csproj";
+				filepath += "Server\\ZESAServer\\BusinessFacade\\" + info.Namespace + "\\";
+				
+				// Verzeichnis bei Bedarf anlegen
+				if(!Directory.Exists(filepath))
+				{
+					Directory.CreateDirectory(filepath);
+				}
+				string filename = filepath + classname + ".cs";
+				
+				// File ausschecken
+				TfsHelper.Instance.CheckOut(filename);
+				
+				// Dateinamen für Logging zwischenspeichern
+				csFiles.Add(fullClassname);
+				
+				// Markierung für geschützten Bereich in Source definieren
+				output.setPreserveSource(filename, "/***", "***/");
+%>using System;
+<%if (info.UsesOldDataSetLogic){
+%>using System.Data;
+<%}%>
+using EHA.ZESA.Communication.RemotingServiceInterface.Allgemein.ClientContext;
+using EHA.ZESA.Communication.RemotingServiceInterface.DAO.<%=info.Namespace%>.<%=entityname%>;
+using EHA.ZESA.Communication.RemotingServiceInterface.Exceptions;
+
+using EHA.ZESA.Components.DbWriter;
+using EHA.ZESA.Components.DbWriter.Exceptions;
+using EHA.ZESA.Components.ErrorHandling;
+using EHA.ZESA.Components.Log4NetWrapper;
+
+using EHA.ZESA.Server.BusinessFacade.Allgemein;
+using EHA.ZESA.Server.DAO.<%=info.Namespace%>;
+
+<%if(info.Stammdatenuebernahme){ %>
+using EHA.ZESA.Server.Allgemein;
+using EHA.ZESA.Server.BusinessFacade.Berechtigungen;
+using EHA.ZESA.Communication.RemotingServiceInterface.Allgemein;
+using EHA.ZESA.Communication.RemotingServiceInterface.Exceptions.Allgemein;
+<%}%>
+
+<% output.preserve("Individuelle_Usings");%>
+
+namespace EHA.ZESA.Server.BusinessFacade.<%=info.Namespace%>
+{
+	/// <summary>
+	///  Manager für die Entität <%=info.ObjectName%>.
+	/// </summary>
+	/// <remarks>
+	/// <para><b>Historie</b></para>
+	/// <div class="tablediv">
+	/// <table class="dtTABLE" cellspacing="0">
+	///		<tr>
+	///			<th width="20%">Autor</th>
+	///			<th width="20%">Datum</th>
+	///			<th width="60%">Bemerkungen</th>
+	///		</tr>
+	///		<tr>
+	///			<td width="20%">MyGeneration</td>
+	///			<td width="20%"><%=DateTime.Now.ToShortDateString()%></td>
+	///			<td width="60%">Erstellt</td>
+	///		</tr>
+	/// </table>
+	/// </div>
+	/// </remarks>
+	public class <%=classname%> : BaseManager
+	{
+		#region Member-Variablen
+
+		// Instanz des Loggers für serverseitiges Debugging
+		private static Logger mLog = new Logger(typeof(<%=classname%>));
+
+<%
+		// geschützten Bereich aus altem Source übernehmen
+		output.preserve("Individuelle_Membervariablen");
+%>
+
+		#endregion Member-Variablen
+
+		#region Konstruktoren
+
+		/// <summary>
+		/// Standard-Konstruktor.
+		/// </summary>
+		public <%=classname%>()
+		{
+			Initialisierung();
+		}
+
+		#endregion Konstruktoren
+
+		#region Initialisierung
+
+		/// <summary>
+		/// Member-Variablen initialisieren und Logging aktivieren.
+		/// </summary>
+		private static void Initialisierung()
+		{
+			mLog.Init(true);
+		}	
+
+		#endregion Initialisierung
+
+		#region Property-Methoden 
+		#endregion Property-Methoden
+
+		#region Öffentliche Methoden
+
+		/// <summary>
+		/// Liest eine Liste aller vorhandenen Datensätze der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <returns>Eine <see cref="<%=entityname%>DAO"/>-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelesen werden konnten.</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		public <%=entityname%>DAO GetList(ClientContext pContext)
+		{
+			try
+			{
+				return new <%=BuildClassname(entityname)%>().GetList(pContext);
+			}
+			catch(Exception e)
+			{
+				base.HandleException(e);
+				return null;
+			}
+		}
+
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Liest eine Liste aller vorhandenen Datensätze der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <returns>Eine <see cref="DataSet"/>-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelesen werden konnten.</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		public DataSet Get<%=entityname%>List(ClientContext pContext)
+		{
+			try
+			{
+				return new <%=BuildClassname(entityname)%>().Get<%=entityname%>List(pContext);
+			}
+			catch(Exception e)
+			{
+				base.HandleException(e);
+				return null;
+			}
+		}
+<%}%>
+		/// <summary>
+		/// Liest einen Datensatz der Tabelle <%=info.ObjectName%> über den Primärschlüssel.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pId">Der Primärschlüssel des gesuchten Datensatzes.</param>
+		/// <returns>Eine <see cref="<%=entityname%>DAO"/>-Instanz mit dem gelesenen Datensatz.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelesen werden konnten.</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		public <%=entityname%>DAO GetById(ClientContext pContext, string pId)
+		{
+			try
+			{
+				return new <%=BuildClassname(entityname)%>().GetById(pContext, pId);
+			}
+			catch(Exception e)
+			{
+				base.HandleException(e);
+				return null;
+			}
+		}
+
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Liest einen Datensatz der Tabelle <%=info.ObjectName%> über den Primärschlüssel.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pId">Der Primärschlüssel des gesuchten Datensatzes.</param>
+		/// <returns>Eine <see cref="DataSet"/>-Instanz mit dem gelesenen Datensatz.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelesen werden konnten.</exception>
+		/// <remarks>Die Ergebnismenge ist auf den im <see cref="ClientContext" /> übergebenen Mandant und Buchungskreis eingeschränkt.</remarks>
+		public DataSet Get<%=entityname%>ById(ClientContext pContext, string pId)
+		{
+			try
+			{
+				return new <%=BuildClassname(entityname)%>().Get<%=entityname%>ById(pContext, pId);
+			}
+			catch(Exception e)
+			{
+				base.HandleException(e);
+				return null;
+			}
+		}
+<%}%>
+		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Ein <see cref="<%=entityname%>DAO" /> mit den Parameterwerten.</param>
+		/// <returns>Eine <see cref="<%=entityname%>DAO"/>-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelesen werden konnten.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der im <see cref="<%=entityname%>DAO" /> angegebenen
+		/// Werte eingeschränkt. Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> 
+		/// übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public <%=entityname%>DAO GetByParam(ClientContext pContext, <%=entityname%>DAO pParams)
+		{
+			try
+			{
+				return new <%=BuildClassname(entityname)%>().GetByParam(pContext, pParams);
+			}
+			catch(Exception e)
+			{
+				base.HandleException(e);
+				return null;
+			}
+		}
+
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Liest eine Liste von ausgewählten Datensätzen der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pParams">Eine <see cref="<%=entityname%>Parameter" />-Struktur mit den Parameterwerten.</param>
+		/// <returns>Eine <see cref="DataSet"/>-Instanz mit den gelesenen Daten.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn die Daten nicht gelesen werden konnten.</exception>
+		/// <remarks>
+		/// Die Ergebnismenge wird an Hand der in der Struktur <see cref="<%=entityname%>Parameter" /> angegebenen
+		/// Werte eingeschränkt. Zusätzlich wird die Ergebnismenge ist auf den im <see cref="ClientContext" /> 
+		/// übergebenen Mandant und Buchungskreis eingeschränkt.
+		/// </remarks>
+		public DataSet Get<%=entityname%>ByParam(ClientContext pContext, <%=entityname%>Parameter pParams)
+		{
+			try
+			{
+				return new <%=BuildClassname(entityname)%>().Get<%=entityname%>ByParam(pContext, pParams);
+			}
+			catch(Exception e)
+			{
+				base.HandleException(e);
+				return null;
+			}
+		}
+<%}%>
+		/// <summary>
+		/// Erzeugt einen neuen, mit Defaultwerten initialisierten Datensatz für die Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <returns>Eine <see cref="<%=entityname%>DAO"/>-Instanz mit dem neuen Datensatz.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn der neue Satz nicht erzeugt werden konnte.</exception>
+		/// <remarks>Der Primärschlüssel, Mandant und Buchungskreis sind bereits gefüllt.</remarks>
+		public <%=entityname%>DAO GetNewRecord(ClientContext pContext)
+		{
+			try
+			{
+				return new <%=BuildClassname(entityname)%>().GetNewRecord(pContext);
+			}
+			catch(Exception e)
+			{
+				base.HandleException(e);
+				return null;
+			}
+		}
+
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Erzeugt einen neuen, mit Defaultwerten initialisierten Datensatz für die Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <returns>Eine <see cref="DataSet"/>-Instanz mit dem neuen Datensatz.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn der neue Satz nicht erzeugt werden konnte.</exception>
+		/// <remarks>Der Primärschlüssel, Mandant und Buchungskreis sind bereits gefüllt.</remarks>
+		public DataSet Get<%=entityname%>NewRecord(ClientContext pContext)
+		{
+			try
+			{
+				return new <%=BuildClassname(entityname)%>().Get<%=entityname%>NewRecord(pContext);
+			}
+			catch(Exception e)
+			{
+				base.HandleException(e);
+				return null;
+			}
+		}
+<%}%>
+		/// <summary>
+		/// Aktualisiert die übergebenen Datensätze in der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pData">Eine <see cref="<%=entityname%>DAO"/>-Instanz mit den zu aktualisierenden Daten.</param>
+		/// <returns>Die Anzahl der geschriebenen Datensätze.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn der Update fehlgeschlagen ist.</exception>
+		/// <remarks>
+		/// Die Methode führt sowohl Updates als auch Inserts in der Datenbank aus. Das übergebene
+		/// DataSet darf durchaus mehrere Datensätze enthalten. Die Struktur des DataSets muss der
+		/// Tabellenstruktur entsprechen.
+		/// </remarks>
+		public int Update(ClientContext pContext, <%=entityname%>DAO pData)
+		{
+
+			mLog.Debug("Update<%=entityname%> for " + pContext.ToString());
+<% if(!hasVersionNum){ %>
+			// Standardvalidierung von der BusinessLogic erledigen lassen.
+			try
+			{
+				new <%=BuildClassname(entityname)%>().Validate<%=entityname%>Fields( pContext, pData);
+			}
+			catch (ValidationException e)
+			{
+				// Hier im (generierten) Server können wir nur Annahmen über den Client anstellen.
+				// Wir nehmen an, dass das UserControl, welches dem Datenbankfeld zugeordnet ist,
+				// den gleichen Namen wie dieses mit vorangestelltem "txt" trägt.
+				e.FieldInfo = "txt" + e.DbFieldInfo;
+
+				// Jetzt verabschieden wir uns aus dem DB-Schreibprozess und geben die Kontrolle zurück an den Client.
+				throw e;
+			}
+<%}%>
+			Guid transactionId = Guid.Empty;
+			int result;
+
+			try
+			{	<%if(info.Stammdatenuebernahme) { %>
+				// bevor wir die Transaktion öffnen prüfen wir ob der User Berechtigt ist Stammdatenpflege zu betreiben
+			    bool userHasStammdatenpflegePermission = true;
+				if(ConfigValues.Instance.PruefeStammdatenAenderungsBerechtigung(pContext))
+				{
+                    string[] user = pContext.BenutzerName.Split('_');
+                    if (!user[0].ToLower().StartsWith("admin") && !user[0].ToLower().StartsWith("geplanterjob"))
+                        userHasStammdatenpflegePermission = new BerechtigungsManager().BenutzerIsInFunktionsgruppeByKennung(pContext, KennungDefinitions.BA_FUNKTIONSGRUPPE_STAMMDATENPFLEGE);
+				} <%}%> 
+				transactionId = DbWriter.Instance.GetTransaction();
+				result = new <%=BuildClassname(entityname)%>().Update(pContext, pData, transactionId);
+				if(result > 0)
+				{
+					<%if(info.Stammdatenuebernahme) { %> // keine Berechtigung? Rollback und Exception werfen
+                    if (!userHasStammdatenpflegePermission)
+                    {
+                        DbWriter.Instance.RollbackTransaction(transactionId);
+                        throw new StammdatenpflegeNotAllowedException();
+                    }<%}%> 
+					DbWriter.Instance.CommitTransaction(transactionId);
+				}
+				else
+				{
+					mLog.Info("Update<%=entityname%> für Kontext " + pContext.ToString() + " hat keine Daten aktualisiert");
+					DbWriter.Instance.RollbackTransaction(transactionId);
+				}
+			}
+			catch(DbWriterException e)
+			{
+				try
+				{
+					DbWriter.Instance.RollbackTransaction(transactionId);
+				}
+				catch(DbWriterException e1)
+				{
+					mLog.Error("Rollback für Update<%=entityname%> für Kontext <" + pContext.ToString() + " ist fehlgeschlagen", e1);
+					throw ClientExceptionHelper.Instance.TranslateException("UPDATE_DATA_FAILED", ErrorLevel.Error, e1);
+				}
+				mLog.Error("Update<%=entityname%> für Kontext <" + pContext.ToString() + " ist fehlgeschlagen", e);
+				throw ClientExceptionHelper.Instance.TranslateException("UPDATE_DATA_FAILED", ErrorLevel.Error, e);
+			}
+			catch(Exception e)
+			{
+				<%if(info.Stammdatenuebernahme) { %> 
+				if (e is StammdatenpflegeNotAllowedException)
+				{
+					// Berechtigungsprobleme werfen wir weiter
+					throw ClientExceptionHelper.Instance.TranslateException("STAMMDATENAENDERUNG_NOT_ALLOWED", ErrorLevel.Validate);
+				}
+				else
+				{
+					// andernfalls einen unerwarteten Fehler melden...
+					throw ClientExceptionHelper.Instance.TranslateException("UNEXPECTED_ERROR", ErrorLevel.Error, e);
+				}
+				<%} else { %> throw ClientExceptionHelper.Instance.TranslateException("UNEXPECTED_ERROR", ErrorLevel.Error, e); <%}%> 
+			}
+			return result;
+		}
+
+<%if (info.UsesOldDataSetLogic){
+%>		/// <summary>
+		/// Aktualisiert die übergebenen Datensätze in der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pData">Eine <see cref="DataSet"/>-Instanz mit den zu aktualisierenden Daten.</param>
+		/// <returns>Die Anzahl der geschriebenen Datensätze.</returns>
+		/// <exception cref="ClientErrorException">Wird geworfen, wenn der Update fehlgeschlagen ist.</exception>
+		/// <remarks>
+		/// Die Methode führt sowohl Updates als auch Inserts in der Datenbank aus. Das übergebene
+		/// DataSet darf durchaus mehrere Datensätze enthalten. Die Struktur des DataSets muss der
+		/// Tabellenstruktur entsprechen.
+		/// </remarks>
+		public int Update<%=entityname%>(ClientContext pContext, DataSet pData)
+		{
+
+			mLog.Debug("Update<%=entityname%> for " + pContext.ToString());
+<% if(!hasVersionNum){ %>
+			// Standardvalidierung von der BusinessLogic erledigen lassen.
+			try
+			{
+				new <%=BuildClassname(entityname)%>().Validate<%=entityname%>Fields( pContext, pData);
+			}
+			catch (ValidationException e)
+			{
+				// Hier im (generierten) Server können wir nur Annahmen über den Client anstellen.
+				// Wir nehmen an, dass das UserControl, welches dem Datenbankfeld zugeordnet ist,
+				// den gleichen Namen wie dieses mit vorangestelltem "txt" trägt.
+				e.FieldInfo = "txt" + e.DbFieldInfo;
+
+				// Jetzt verabschieden wir uns aus dem DB-Schreibprozess und geben die Kontrolle zurück an den Client.
+				throw e;
+			}
+<%}%>			
+			Guid transactionId = Guid.Empty;
+			int result;
+
+			try
+			{
+				<%if(info.Stammdatenuebernahme) { %>
+				// bevor wir die Transaktion öffnen prüfen wir ob der User Berechtigt ist Stammdatenpflege zu betreiben
+			    bool userHasStammdatenpflegePermission = true;
+				if(ConfigValues.Instance.PruefeStammdatenAenderungsBerechtigung(pContext))
+				{
+                    string[] user = pContext.BenutzerName.Split('_');
+                    if (!user[0].ToLower().StartsWith("admin") && !user[0].ToLower().StartsWith("geplanterjob"))
+                        userHasStammdatenpflegePermission = new BerechtigungsManager().BenutzerIsInFunktionsgruppeByKennung(pContext, KennungDefinitions.BA_FUNKTIONSGRUPPE_STAMMDATENPFLEGE);
+				} <%}%> 
+				transactionId = DbWriter.Instance.GetTransaction();
+				result = new <%=BuildClassname(entityname)%>().Update<%=entityname%>(pContext, pData, transactionId);
+				if(result > 0)
+				{
+					<%if(info.Stammdatenuebernahme) { %> // keine Berechtigung? Rollback und Exception werfen
+                    if (!userHasStammdatenpflegePermission)
+                    {
+                        DbWriter.Instance.RollbackTransaction(transactionId);
+                        throw new StammdatenpflegeNotAllowedException();
+                    }<%}%> 
+					DbWriter.Instance.CommitTransaction(transactionId);
+				}
+				else
+				{
+					mLog.Info("Update<%=entityname%> für Kontext " + pContext.ToString() + " hat keine Daten aktualisiert");
+					DbWriter.Instance.RollbackTransaction(transactionId);
+				}
+			}
+			catch(DbWriterException e)
+			{
+				try
+				{
+					DbWriter.Instance.RollbackTransaction(transactionId);
+				}
+				catch(DbWriterException e1)
+				{
+					mLog.Error("Rollback für Update<%=entityname%> für Kontext <" + pContext.ToString() + " ist fehlgeschlagen", e1);
+					throw ClientExceptionHelper.Instance.TranslateException("UPDATE_DATA_FAILED", ErrorLevel.Error, e1);
+				}
+				mLog.Error("Update<%=entityname%> für Kontext <" + pContext.ToString() + " ist fehlgeschlagen", e);
+				throw ClientExceptionHelper.Instance.TranslateException("UPDATE_DATA_FAILED", ErrorLevel.Error, e);
+			}
+			catch(Exception e)
+			{
+				<%if(info.Stammdatenuebernahme) { %> 
+				if (e is StammdatenpflegeNotAllowedException)
+				{
+					// Berechtigungsprobleme werfen wir weiter
+					throw ClientExceptionHelper.Instance.TranslateException("STAMMDATENAENDERUNG_NOT_ALLOWED", ErrorLevel.Validate);
+				}
+				else
+				{
+					// andernfalls einen unerwarteten Fehler melden...
+					throw ClientExceptionHelper.Instance.TranslateException("UNEXPECTED_ERROR", ErrorLevel.Error, e);
+				}
+				<%} else { %> throw ClientExceptionHelper.Instance.TranslateException("UNEXPECTED_ERROR", ErrorLevel.Error, e); <%}%> 
+			}
+			return result;
+		}
+<%}%>
+		/// <summary>
+		/// Löscht einen Datensatz aus der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pPrimaryKey">Der Primärschlüssel des zu Löschenden Datensatzes.</param>
+		/// <returns>Die Anzahl der gelöschten Sätze.</returns>
+		/// <exception cref="DbWriterException">
+		/// Wird geworfen, wenn beim Löschen ein Fehler auf dem Datenbankserver aufgetreten ist.
+		/// </exception>
+		/// <exception cref="ManagerException">
+		/// Wird geworfen, wenn mehr als ein Datensatz gelöscht wurde.
+		/// </exception>
+		public int Delete<%=entityname%>(ClientContext pContext, string pPrimaryKey)
+		{
+
+			mLog.Debug("Delete<%=entityname%> für " + pContext.ToString());
+
+			Guid transactionId = Guid.Empty;
+			int result;
+
+			try
+			{
+				<%if(info.Stammdatenuebernahme) { %>
+				// bevor wir die Transaktion öffnen prüfen wir ob der User Berechtigt ist Stammdatenpflege zu betreiben
+			    bool userHasStammdatenpflegePermission = true;
+				if(ConfigValues.Instance.PruefeStammdatenAenderungsBerechtigung(pContext))
+				{
+                    string[] user = pContext.BenutzerName.Split('_');
+                    if (!user[0].ToLower().StartsWith("admin") && !user[0].ToLower().StartsWith("geplanterjob"))
+                        userHasStammdatenpflegePermission = new BerechtigungsManager().BenutzerIsInFunktionsgruppeByKennung(pContext, KennungDefinitions.BA_FUNKTIONSGRUPPE_STAMMDATENPFLEGE);
+				} <%}%> 
+				transactionId = DbWriter.Instance.GetTransaction();
+				result = new <%=BuildClassname(entityname)%>().Delete(pContext, pPrimaryKey, transactionId);
+				if(result > 1)
+				{
+					mLog.Error("Delete<%=entityname%> für Kontext " + pContext.ToString() + " hat mehr als einen Datensatz gelöscht.");
+					DbWriter.Instance.RollbackTransaction(transactionId);
+					throw ClientExceptionHelper.Instance.TranslateException("MANAGER_DELETE_MORE_THAN_ONE_RECORD", ErrorLevel.Error);
+				}
+				else if(result == 1)
+				{
+					<%if(info.Stammdatenuebernahme) { %> // keine Berechtigung? Rollback und Exception werfen
+                    if (!userHasStammdatenpflegePermission)
+                    {
+                        DbWriter.Instance.RollbackTransaction(transactionId);
+                        throw new StammdatenpflegeNotAllowedException();
+                    }<%}%> 
+					DbWriter.Instance.CommitTransaction(transactionId);
+				}
+				else
+				{
+					mLog.Info("Delete<%=entityname%> für Kontext " + pContext.ToString() + " hat keine Datensätze gelöscht.");
+					DbWriter.Instance.RollbackTransaction(transactionId);
+				}
+			}
+			catch(DbWriterException e)
+			{
+				try
+				{
+					DbWriter.Instance.RollbackTransaction(transactionId);
+				}
+				catch(DbWriterException e1)
+				{
+					mLog.Info("Rollback für Delete<%=entityname%> für Kontext " + pContext.ToString() + " ist fehlgeschlagen.", e1);
+					throw ClientExceptionHelper.Instance.TranslateException("DELETE_DATA_FAILED", ErrorLevel.Error, e1);
+				}
+				mLog.Info("Delete<%=entityname%> für Kontext " + pContext.ToString() + " ist fehlgeschlagen.", e);
+				throw ClientExceptionHelper.Instance.TranslateException("DELETE_DATA_FAILED", ErrorLevel.Error, e);
+			}<%if(info.Stammdatenuebernahme) { %> 
+			catch(StammdatenpflegeNotAllowedException)
+			{
+				// Berechtigungsprobleme werfen wir weiter
+				throw ClientExceptionHelper.Instance.TranslateException("STAMMDATENAENDERUNG_NOT_ALLOWED", ErrorLevel.Validate);
+			}<%}%>
+			return result;
+		}
+
+<% if(hasVersionNum){ %>
+		/// <summary>
+		/// Löscht mehrere Datensätze aus der Tabelle <%=info.ObjectName%>.
+		/// </summary>
+		/// <param name="pContext">Der aktuelle <see cref="ClientContext" />.</param>
+		/// <param name="pDao">ein Dao mit den zu löschenden Datensätzen.</param>
+		/// <returns>Die Anzahl der gelöschten Sätze.</returns>
+		/// <exception cref="DbWriterException">
+		/// Wird geworfen, wenn beim Löschen ein Fehler auf dem Datenbankserver aufgetreten ist.
+		/// </exception>
+		public int Delete(ClientContext pContext, <%=entityname%>DAO pDao)
+		{
+
+			mLog.Debug("Delete<%=entityname%> für " + pContext.ToString());
+
+			Guid transactionId = Guid.Empty;
+			int result;
+
+			try
+			{
+				<%if(info.Stammdatenuebernahme) { %>
+				// bevor wir die Transaktion öffnen prüfen wir ob der User Berechtigt ist Stammdatenpflege zu betreiben
+			    bool userHasStammdatenpflegePermission = true;
+				if(ConfigValues.Instance.PruefeStammdatenAenderungsBerechtigung(pContext))
+				{
+                    string[] user = pContext.BenutzerName.Split('_');
+                    if (!user[0].ToLower().StartsWith("admin") && !user[0].ToLower().StartsWith("geplanterjob"))
+                        userHasStammdatenpflegePermission = new BerechtigungsManager().BenutzerIsInFunktionsgruppeByKennung(pContext, KennungDefinitions.BA_FUNKTIONSGRUPPE_STAMMDATENPFLEGE);
+				} <%}%> 
+				transactionId = DbWriter.Instance.GetTransaction();
+				result = new <%=BuildClassname(entityname)%>().Delete(pContext, pDao, transactionId);
+				
+				if(result >= 1)
+				{
+					<%if(info.Stammdatenuebernahme) { %> // keine Berechtigung? Rollback und Exception werfen
+                    if (!userHasStammdatenpflegePermission)
+                    {
+                        DbWriter.Instance.RollbackTransaction(transactionId);
+                        throw new StammdatenpflegeNotAllowedException();
+                    }<%}%> 
+					DbWriter.Instance.CommitTransaction(transactionId);
+				}
+				else
+				{
+					mLog.Info("Delete<%=entityname%> für Kontext " + pContext.ToString() + " hat keine Datensätze gelöscht.");
+					DbWriter.Instance.RollbackTransaction(transactionId);
+				}
+			}
+			catch(DbWriterException e)
+			{
+				try
+				{
+					DbWriter.Instance.RollbackTransaction(transactionId);
+				}
+				catch(DbWriterException e1)
+				{
+					mLog.Info("Rollback für Delete<%=entityname%> für Kontext " + pContext.ToString() + " ist fehlgeschlagen.", e1);
+					throw ClientExceptionHelper.Instance.TranslateException("DELETE_DATA_FAILED", ErrorLevel.Error, e1);
+				}
+				mLog.Info("Delete<%=entityname%> für Kontext " + pContext.ToString() + " ist fehlgeschlagen.", e);
+				throw ClientExceptionHelper.Instance.TranslateException("DELETE_DATA_FAILED", ErrorLevel.Error, e);
+			}<%if(info.Stammdatenuebernahme) { %> 
+			catch(StammdatenpflegeNotAllowedException)
+			{
+				// Berechtigungsprobleme werfen wir weiter
+				throw ClientExceptionHelper.Instance.TranslateException("STAMMDATENAENDERUNG_NOT_ALLOWED", ErrorLevel.Validate);
+			}<%}%>
+			return result;
+		}
+<%}%>
+		#endregion Öffentliche Methoden
+
+		#region private Methoden
+		#endregion private Methoden
+		
+		#region individuelle Anpassungen
+		
+<%
+		// geschützten Bereich aus altem Source übernehmen
+		output.preserve("Individuelle_Anpassungen");
+%>
+
+		#endregion individuelle Anpassungen
+	}
+}
+<%
+				// neue Dateien der Projektdatei hinzufügen
+				bool addToProject = false;
+				if(!File.Exists(filename))
+					addToProject = true;
+			
+				// Save File
+				output.save(filename, false);
+				output.clear();	
+			
+				// neue Dateien der Projektdatei hinzufügen
+				if(addToProject)
+				{
+					// Projektdatei auschecken
+					TfsHelper.Instance.CheckOut(filePathProjectFile);
+					GeneratorHelper.AddFileToProject(Project.Server, fileNameInProject);
+					TfsHelper.Instance.Add(filename);
+				}		
+			}
+		}
+		
+		// Logging
+		output.clear();
+		output.writeln("Generierung Manager-Klassen erfolgreich beendet...");
+		output.writeln("");
+		output.writeln("Ausgabeverzeichnis = " + input["TargetPath"]);
+		output.writeln("");
+		output.writeln("Folgende Dateien wurden generiert:" );
+		output.writeln("");
+		foreach(string csFile in csFiles)
+		{
+		    output.writeln(csFile);
+		}
+		output.writeln("");
+		output.writeln("==> Ende <==");
+		output.writeln("");
+		string logname = input["TargetPath"].ToString();
+		if (!logname.EndsWith("\\") ) logname += "\\";
+		logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+		output.append(logname);
+    output.clear();	
+		MyMeta.SaveUserMetaData();
+	}
+	
+	// Für die Businesslogik-Klasse Vertrag muss der Namespace vorangestellt werden
+	private string BuildClassname(string pEntityName)
+	{
+		if(pEntityName == "Vertrag")
+			return "DAO.Vertrag.Vertrag";
+		else
+			return pEntityName;
+	}
+	
+	// Prüfen, ob Tabelle Spalte VERSION_NUM enthält
+	private bool CheckForVersionNumColumn(IColumns pCols)
+	{
+		foreach(IColumn col in pCols)
+		{
+			if(col.Name.ToUpper() == VERSION_NUM)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+}
+%>
+##|BODY_END

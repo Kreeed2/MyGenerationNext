@@ -1,0 +1,49 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33403.182
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BusinesslogicGeneratorUI", "BusinesslogicGeneratorUI.csproj", "{47D6D310-CBE7-4A9B-A07E-242405CED292}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UITester", "UITester\UITester.csproj", "{719A8B0C-FBD5-4622-A273-289B43B1F631}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{47D6D310-CBE7-4A9B-A07E-242405CED292}.Debug|Any CPU.ActiveCfg = Release|Any CPU
+		{47D6D310-CBE7-4A9B-A07E-242405CED292}.Debug|Any CPU.Build.0 = Release|Any CPU
+		{47D6D310-CBE7-4A9B-A07E-242405CED292}.Debug|x86.ActiveCfg = Release|x86
+		{47D6D310-CBE7-4A9B-A07E-242405CED292}.Debug|x86.Build.0 = Release|x86
+		{47D6D310-CBE7-4A9B-A07E-242405CED292}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{47D6D310-CBE7-4A9B-A07E-242405CED292}.Release|Any CPU.Build.0 = Release|Any CPU
+		{47D6D310-CBE7-4A9B-A07E-242405CED292}.Release|x86.ActiveCfg = Release|x86
+		{47D6D310-CBE7-4A9B-A07E-242405CED292}.Release|x86.Build.0 = Release|x86
+		{719A8B0C-FBD5-4622-A273-289B43B1F631}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{719A8B0C-FBD5-4622-A273-289B43B1F631}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{719A8B0C-FBD5-4622-A273-289B43B1F631}.Debug|x86.ActiveCfg = Release|x86
+		{719A8B0C-FBD5-4622-A273-289B43B1F631}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{719A8B0C-FBD5-4622-A273-289B43B1F631}.Release|Any CPU.Build.0 = Release|Any CPU
+		{719A8B0C-FBD5-4622-A273-289B43B1F631}.Release|x86.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {49C3465E-FEF5-4669-AB01-859299A5DF58}
+	EndGlobalSection
+	GlobalSection(TeamFoundationVersionControl) = preSolution
+		SccNumberOfProjects = 3
+		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
+		SccTeamFoundationServer = https://svcapptfsprod.corp.eha-hamburg.de/eha_itscollection
+		SccLocalPath0 = .
+		SccProjectUniqueName1 = BusinesslogicGeneratorUI.csproj
+		SccLocalPath1 = .
+		SccProjectUniqueName2 = UITester\\UITester.csproj
+		SccProjectName2 = UITester
+		SccLocalPath2 = UITester
+	EndGlobalSection
+EndGlobal

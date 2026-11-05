@@ -1,0 +1,63 @@
+﻿##|TYPE Group
+##|UNIQUEID d33d8f4b-485e-423b-a9ef-b0e838503e8f
+##|TITLE ZESA Business Logic Generator
+##|NAMESPACE EHA.ZESA
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE C#
+##|COMMENTS_BEGIN
+Generator für die Erzeugung der einfachen Businesslogik für den Zugriff auf die Tabellen der Datenbank.
+##|COMMENTS_END
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll %>
+<%#NAMESPACE System, System.Text, System.Collections, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+		input["StammdatenWithForeignKeys"] = ui.StammdatenWithForeignKeys;
+		input["ExistingTableValuedParameterForTables"] = ui.ExistingTableValuedParameterForTables;
+		input["FunctionGenInfoData"] = ui.FunctionGenInfoData;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using EHA.ZESA.Util.GeneratorUI;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+	}
+
+}
+%>
+##|BODY_END
+##|TEMPLATE_INCLUDE .\ZESADatabaseConfig.csgen
+##|TEMPLATE_INCLUDE .\ZESATableValuedTypeConfig.csgen
+##|TEMPLATE_INCLUDE .\ZESAListOfValues.csgen
+##|TEMPLATE_INCLUDE .\ZESAColDefs.csgen
+##|TEMPLATE_INCLUDE .\ZESAParameter.csgen
+##|TEMPLATE_INCLUDE .\ZESARemotingServiceInterface.csgen
+##|TEMPLATE_INCLUDE .\ZESARemotingService.csgen
+##|TEMPLATE_INCLUDE .\ZESAManager.csgen
+##|TEMPLATE_INCLUDE .\ZESAVerifiedDAO.csgen
+##|TEMPLATE_INCLUDE .\ZESAServerDAO.csgen
+##|TEMPLATE_INCLUDE .\ZESAPruefeTableValuedParameter.csgen

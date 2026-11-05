@@ -1,0 +1,373 @@
+﻿##|TYPE Template
+##|UNIQUEID cbb13f6c-8388-4fff-b6fc-a14c3f3dd4aa
+##|TITLE ZESAListView
+##|NAMESPACE EHA.ZESA.Client
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE None
+##|COMMENTS_BEGIN
+Template für User-Control Listenanzeige
+##|COMMENTS_END
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll %>
+<%#NAMESPACE System, System.Text, System.Collections, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using EHA.ZESA.Util.GeneratorUI;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	private const string BOOL = "bool";
+	
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+	  if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		ArrayList data = input["Data"] as ArrayList;
+		ArrayList csFiles = new ArrayList();
+		string filepath;
+
+		foreach(GenInfo info in data)
+		{
+		  IColumns cols;
+			string entityname;
+			string entitynameUpper;
+			
+			// Differenzen zwischen ITable und IView eliminieren
+			if(info.ObjectType == "Table")
+			{
+				ITable table = MyMeta.DefaultDatabase.Tables[info.ObjectName];
+				cols = table.Columns;
+				entityname = GeneratorHelper.ConvertName(info.EntityName);
+				entitynameUpper = info.EntityName;
+			}
+			else
+			{
+				IView view = MyMeta.DefaultDatabase.Views[info.ObjectName];
+				cols = view.Columns;
+				entityname = GeneratorHelper.ConvertName(info.ObjectName);
+				entitynameUpper = info.ObjectName;
+			}
+			
+			// Klassenname bilden
+			string classname     = entityname + "ListUC";
+			string fullClassname = "EHA.ZESA.Client." + info.Namespace + "." + classname;
+
+			// Dateiname bilden
+			filepath = input["TargetPath"].ToString();
+			if (!filepath.EndsWith("\\") ) filepath += "\\";
+			filepath += "Client\\ZESAClient." + info.Namespace + "\\";
+			
+			// Verzeichnis bei Bedarf anlegen
+			if(!Directory.Exists(filepath))
+			{
+				Directory.CreateDirectory(filepath);
+			}
+			string filename = filepath + entityname + "ListUC.cs";
+			
+			// File ausschecken
+			TfsHelper.Instance.CheckOut(filename);
+			
+			// Dateiname für Logging zwischenspeichern
+			csFiles.Add(fullClassname);
+			
+%>using System.Windows.Forms;
+
+using EHA.ZESA.Client.Allgemein;
+using EHA.ZESA.Client.Allgemein.Utilities;
+using EHA.ZESA.Communication.RemotingServiceInterface.DAO.<%=info.Namespace%>.<%=entityname%>;
+
+namespace EHA.ZESA.Client.<%=info.Namespace%>
+{
+	/// <summary>
+	/// User Control für das Anzeigen einer Liste von Datensätzen der Entität <%=entityname%>.
+	/// </summary>
+	/// <remarks>
+	/// <para><b>Historie</b></para>
+	/// <div class="tablediv">
+	/// <table class="dtTABLE" cellspacing="0">
+	///		<tr>
+	///			<th width="20%">Autor</th>
+	///			<th width="20%">Datum</th>
+	///			<th width="60%">Bemerkungen</th>
+	///		</tr>
+	///		<tr>
+	///			<td width="20%">MyGeneration</td>
+	///			<td width="20%"><%=DateTime.Now.ToShortDateString()%></td>
+	///			<td width="60%">Erstellt</td>
+	///		</tr>
+	/// </table>
+	/// </div>
+	/// </remarks>
+	public class <%=entityname%>ListUC : EHA.ZESA.Client.Allgemein.DialogControl.BaseDataGridUserControl
+	{
+		#region Member-Variablen
+		// Reihenfolge:
+		// public const ...
+		// protected const ...
+		// private const ...
+		// public ...
+		// protected ...
+		// private
+
+		// Konstanten zur Spaltenbezeichnung im Datagrid
+<%OutputColumnHeaders(cols);%>
+
+		#endregion Member-Variablen
+
+		#region Vom Form-Designer generierte Variablen
+
+		private System.ComponentModel.IContainer components = null;
+
+		#endregion Vom Form-Designer generierte Variablen
+
+		#region Konstruktoren
+
+		public <%=entityname%>ListUC()
+		{
+			// Dieser Aufruf ist für den Windows Form-Designer erforderlich.
+			InitializeComponent();
+
+			// TODO: Initialisierungen nach dem Aufruf von InitializeComponent hinzufügen
+		}
+
+		#endregion Konstruktoren
+
+		#region Destruktoren
+
+		/// <summary>
+		/// Die verwendeten Ressourcen bereinigen.
+		/// </summary>
+		protected override void Dispose( bool disposing )
+		{
+			if( disposing )
+			{
+				if (components != null) 
+				{
+					components.Dispose();
+				}
+			}
+			base.Dispose( disposing );
+		}
+
+		#endregion Destruktoren
+
+		#region Initialisierung
+
+		/// <summary>
+		/// Es werden diverse Initialisierungen des User-Controls durchgeführt.
+		/// </summary>
+		/// <remarks>
+		/// <p>Die eigentliche Initialisierung der Anzeige muss explizit zur Laufzeit
+		/// durchgeführt werden. Insbesondere muss das DataSet, welches die Daten
+		/// für die Anzeige enthält, übergeben worden sein, bevor die Initialisierung
+		/// durchgeführt werden kann. Der Aufruf im übergeordneten User-Control bzw. 
+		/// Formular sieht wie folgt aus (es wird vorausgesetzt, dass bereits eine
+		/// Instanz von <%=entityname%>ListUC existiert):</p>
+		/// <code>
+		/// uc<%=entityname%>List.Data = <i>&gt;Ein DataSet mit anzuzeigenden Daten&lt;</i>;
+		/// uc<%=entityname%>List.InitView();
+		/// </code>
+		/// </remarks>
+		public override void InitView()
+		{
+			// Wenn kein DataSet existiert, bleibt die Listansicht leer
+			if(null == base.Data)
+			{
+				return;
+			}
+
+			// Lesen der Statustabelle für Statusanzeige
+			if (base.Data.Tables.Contains( <%=entityname%>DAO.TBL_STAT))
+			{
+				base.GetRecordsFound( <%=entityname%>DAO.TBL_STAT);
+				if (base.MaxRecordsRead <= 0)
+				{
+					FrmMain.GetInstance().SetStatusbarAlertText( base.GetRecordsFoundMessage());
+				}
+				else if (base.MaxRecordsExceeded)
+				{
+					FrmMain.GetInstance().SetStatusbarAlertText( base.GetRecordsFoundMessage());
+				}
+				else
+				{
+					FrmMain.GetInstance().SetStatusbarInfoText( base.GetRecordsFoundMessage());
+				}
+			}
+			
+			base.PrimaryKeyColumn = <%=entityname%>DAO.<%=entitynameUpper%>_ID;
+			base.TableName =  <%=entityname%>DAO.TBL_DATA;
+			FormatDataGrid();
+			base.InitView();
+		}
+
+		#endregion Initialisierung
+
+		#region Vom Designer generierter Code
+
+		/// <summary>
+		/// Erforderliche Methode für die Designerunterstützung. 
+		/// Der Inhalt der Methode darf nicht mit dem Code-Editor geändert werden.
+		/// </summary>
+		private void InitializeComponent()
+		{
+			components = new System.ComponentModel.Container();
+		}
+
+		#endregion
+
+		#region Property-Methoden 
+
+		#endregion Property-Methoden
+
+		#region Öffentliche Methoden
+
+		#endregion Öffentliche Methoden
+
+		#region private Methoden
+
+		/// <summary>
+		/// Formatierung des DataGrids (allgemeine Grid Eigenschaften, Zuweisen aller sichtbaren Spalten
+		/// aus DataSet Objekt (Ausblenden der Primärschlüsselspalten).
+		/// </summary>
+		protected override void FormatDataGrid()
+		{
+			DataGridTableStyle tableStyle = base.DefaultTableStyle;
+			tableStyle.GridColumnStyles.Clear();
+
+			tableStyle.MappingName = <%=entityname%>DAO.TBL_DATA;
+
+<%OutputColumns(entityname, cols);%>
+
+			base.AutoSizeColumns();
+			base.FullRowSelect = true;
+		}
+
+		#endregion private Methoden
+
+		#region Events von Benutzersteuerelementen
+
+		#endregion Events von Benutzersteuerelementen
+
+	}
+}<%
+			output.save(filename, false);
+      output.clear();	
+		}
+		
+		// Logging
+		output.clear();
+		output.writeln("Generierung ListView User-Controls erfolgreich beendet...");
+		output.writeln("");
+		output.writeln("Ausgabeverzeichnis = " + input["TargetPath"]);
+		output.writeln("");
+		output.writeln("Folgende Dateien wurden generiert:" );
+		output.writeln("");
+		foreach(string csFile in csFiles)
+		{
+		    output.writeln(csFile);
+		}
+		output.writeln("");
+		output.writeln("==> Ende <==");
+		output.writeln("");
+		string logname = input["TargetPath"].ToString();
+		if (!logname.EndsWith("\\") ) logname += "\\";
+		logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+		output.append(logname);
+		output.clear();
+		MyMeta.SaveUserMetaData();
+	}
+
+	// Gibt für alle Spalten der Tabelle die Definition der Spaltenüberschriften aus.
+	// Beispiel: private static readonly string COL_ANLAGE_ID = Localization.GetInstance().GetLocalizedString("Id");
+	private void OutputColumnHeaders(IColumns pColumns)
+	{
+		int oldTabLevel = output.tabLevel;
+		output.tabLevel = 2;
+		int maxLength = GeneratorHelper.MaxColLength(pColumns);
+
+		foreach(Column col in pColumns)
+		{
+			output.autoTab("private static readonly string COL_");
+			output.write(col.Name.ToUpper());
+			output.write(GeneratorHelper.FillUp(col.Name, maxLength));
+			output.write(" = Localization.GetInstance().GetLocalizedString(\"");
+			output.write(GeneratorHelper.ConvertName(col.Name));
+			output.writeln("\");");
+		}
+
+		output.tabLevel = oldTabLevel;
+	}
+
+	// Gibt für alle Spalten der Tabelle die Definition der DataGrid-Spalten aus.
+	// Beispiel:
+	// DataGridColumnStyle col1 = new DataGridTextBoxColumn();
+	// col1.MappingName         = V_Anlage_Mit_HistorieColDefs.HI_ANLAGE_ID;
+	// col1.HeaderText          = COL_HI_ANLAGE_ID;
+	// col1.Width               = 0;
+	// tableStyle.GridColumnStyles.Add(col1);
+	private void OutputColumns(string entityname, IColumns pColumns)
+	{
+		int oldTabLevel = output.tabLevel;
+		output.tabLevel = 4;
+	
+		foreach(Column col in pColumns)
+		{
+			string colname = "textCol" + col.Name;
+			if(col.LanguageType == BOOL)
+			{
+				output.autoTabLn("DataGridColumnStyle " + colname + " = new DataGridBoolColumn();");
+			}
+			else
+			{
+				output.autoTabLn("DataGridColumnStyle " + colname + " = new DataGridTextBoxColumn();");
+			}
+			// die Leerzeichen dienen der Formatierung des Source
+			output.autoTabLn(colname + ".MappingName         = " + entityname + "DAO." + col.Name.ToUpper() + ";");
+			output.autoTabLn(colname + ".HeaderText          = COL_" + col.Name.ToUpper() + ";");
+			if(col.IsInPrimaryKey)
+			{
+				output.autoTabLn(colname + ".Width               = 0;");
+			}
+			else
+			{
+				output.autoTabLn(colname + ".Width               = Globals.GetInstance().ColWidthText10;");
+			}
+			output.autoTabLn("tableStyle.GridColumnStyles.Add(" + colname + ");");
+			output.writeln("");
+		}
+
+		output.tabLevel = oldTabLevel;
+	}
+
+}
+%>
+##|BODY_END

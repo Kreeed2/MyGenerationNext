@@ -1,0 +1,235 @@
+﻿##|TYPE Template
+##|UNIQUEID 81b746a7-b99d-4d4c-beb5-e35de6aeca6b
+##|TITLE UnitTestProject
+##|NAMESPACE 
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE XML
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll %>
+<%#NAMESPACE System, System.Text, System.Collections, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using EHA.ZESA.Util.GeneratorUI;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+	  if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		ArrayList data = input["Data"] as ArrayList;
+		string filepath;
+		// dateinamen bilden
+		filepath = input["TargetPath"].ToString();
+		if (!filepath.EndsWith("\\") ) filepath += "\\";
+		filepath += "ZESATest\\ZESAUnitTests\\ZESAUnitTests.csproj";
+%><VisualStudioProject>
+		<CSHARP
+				ProjectType = "Local"
+				ProductVersion = "7.10.3077"
+				SchemaVersion = "2.0"
+				ProjectGuid = "{ABA31F3C-5E0C-448D-AD6B-07BFCAA330C1}"
+		>
+				<Build>
+						<Settings
+								ApplicationIcon = ""
+								AssemblyKeyContainerName = ""
+								AssemblyName = "ZESA.Test"
+								AssemblyOriginatorKeyFile = ""
+								DefaultClientScript = "JScript"
+								DefaultHTMLPageLayout = "Grid"
+								DefaultTargetSchema = "IE50"
+								DelaySign = "false"
+								OutputType = "Library"
+								PreBuildEvent = ""
+								PostBuildEvent = "copy $(ProjectDir)ZESA.Test.dll.config"
+								RootNamespace = "EHA.ZESA.Server.Test"
+								RunPostBuildEvent = "OnBuildSuccess"
+								StartupObject = ""
+						>
+								<Config
+										Name = "Debug"
+										AllowUnsafeBlocks = "false"
+										BaseAddress = "285212672"
+										CheckForOverflowUnderflow = "false"
+										ConfigurationOverrideFile = ""
+										DefineConstants = "DEBUG;TRACE"
+										DocumentationFile = ""
+										DebugSymbols = "true"
+										FileAlignment = "4096"
+										IncrementalBuild = "false"
+										NoStdLib = "false"
+										NoWarn = ""
+										Optimize = "false"
+										OutputPath = "bin\Debug\"
+										RegisterForComInterop = "false"
+										RemoveIntegerChecks = "false"
+										TreatWarningsAsErrors = "false"
+										WarningLevel = "4"
+								/>
+								<Config
+										Name = "Release"
+										AllowUnsafeBlocks = "false"
+										BaseAddress = "285212672"
+										CheckForOverflowUnderflow = "false"
+										ConfigurationOverrideFile = ""
+										DefineConstants = "TRACE"
+										DocumentationFile = ""
+										DebugSymbols = "false"
+										FileAlignment = "4096"
+										IncrementalBuild = "false"
+										NoStdLib = "false"
+										NoWarn = ""
+										Optimize = "true"
+										OutputPath = "bin\Release\"
+										RegisterForComInterop = "false"
+										RemoveIntegerChecks = "false"
+										TreatWarningsAsErrors = "false"
+										WarningLevel = "4"
+								/>
+						</Settings>
+						<References>
+								<Reference
+										Name = "System"
+										AssemblyName = "System"
+										HintPath = "C:\WINDOWS\Microsoft.NET\Framework\v1.1.4322\System.dll"
+								/>
+								<Reference
+										Name = "System.Data"
+										AssemblyName = "System.Data"
+										HintPath = "C:\WINDOWS\Microsoft.NET\Framework\v1.1.4322\System.Data.dll"
+								/>
+								<Reference
+										Name = "System.XML"
+										AssemblyName = "System.Xml"
+										HintPath = "C:\WINDOWS\Microsoft.NET\Framework\v1.1.4322\System.XML.dll"
+								/>
+								<Reference
+										Name = "RemotingServiceInterface"
+										Project = "{41CE9062-1FB4-4FB0-A7B1-CB39F7A990D1}"
+										Package = "{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}"
+								/>
+								<Reference
+										Name = "ZESAServer"
+										Project = "{764A91E2-019E-4E1A-A8BE-B4F012D47029}"
+										Package = "{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}"
+								/>
+								<Reference
+										Name = "ZESAComponents"
+										AssemblyName = "ZESAComponents"
+										HintPath = "..\..\Components\lib\ZESAComponents.dll"
+								/>
+								<Reference
+										Name = "nunit.framework"
+										AssemblyName = "nunit.framework"
+										HintPath = "..\..\..\..\..\..\VS.NET-Tools\NUnit\bin\nunit.framework.dll"
+										AssemblyFolderKey = "hklm\dn\nunit.framework"
+								/>
+						</References>
+				</Build>
+				<Files>
+						<Include>
+								<File
+										RelPath = "AssemblyInfo.cs"
+										SubType = "Code"
+										BuildAction = "Compile"
+								/>
+								<File
+										RelPath = "ZESA.Test.dll.config"
+										BuildAction = "None"
+								/>
+<%
+		string filename = string.Empty;
+		foreach(GenInfo info in data)
+		{
+		  IColumns cols;
+			string entityname;
+			
+			// Differenzen zwischen ITable und IView eliminieren
+			if(info.ObjectType == "Table")
+			{
+				ITable table = MyMeta.DefaultDatabase.Tables[info.ObjectName];
+				cols = table.Columns;
+				entityname = GeneratorHelper.ConvertName(info.EntityName);
+			}
+			else
+			{
+				IView view = MyMeta.DefaultDatabase.Views[info.ObjectName];
+				cols = view.Columns;
+				entityname = GeneratorHelper.ConvertName(info.ObjectName);
+			}
+			
+			// Relativen Pfadnamen bilden
+			string relpath = info.Namespace + "\\DAO\\" + entityname + "Test.cs";
+
+			// dateinamen bilden
+			filepath = input["TargetPath"].ToString();
+			if (!filepath.EndsWith("\\") ) filepath += "\\";
+			filepath += "ZESATest\\ZESAUnitTests\\";
+			
+			// Verzeichnis bei Bedarf anlegen
+			if(!Directory.Exists(filepath))
+			{
+				Directory.CreateDirectory(filepath);
+			}
+			filename = filepath + "ZESAUnitTests.csproj";
+			// File ausschecken
+			TfsHelper.Instance.CheckOut(filename);
+%>								<File
+										RelPath = "<%=relpath%>"
+										SubType = "Code"
+										BuildAction = "Compile"
+								/>
+<%
+		}
+%>						</Include>
+				</Files>
+		</CSHARP>
+</VisualStudioProject>
+<%
+		output.save(filename, false);
+		output.clear();	
+		// Logging
+		output.clear();
+		output.writeln("Generierung Projektdatei erfolgreich beendet...");
+		output.writeln("");
+		output.writeln("Ausgabeverzeichnis = " + input["TargetPath"] + "\\" + filename);
+		string logname = input["TargetPath"].ToString();
+		if (!logname.EndsWith("\\") ) logname += "\\";
+		logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+		output.append(logname);
+		output.clear();
+		MyMeta.SaveUserMetaData();
+	}
+}
+%>
+##|BODY_END

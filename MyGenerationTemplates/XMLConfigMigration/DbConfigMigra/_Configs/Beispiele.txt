@@ -1,0 +1,7 @@
+ var foo = from elements in xmlDoc.DocumentElement.ChildNodes.Cast<XmlNode>()
+                              select elements.SelectSingleNode("alternativeConfig").InnerText;
+			      
+			      
+ XDocument xmlConfig = XDocument.Load("DbReader.config");
+		    var xNodes = from nodes in xmlConfig.Nodes() select nodes;
+            XmlNodeReader r = new XmlNodeReader(xNodes);			      

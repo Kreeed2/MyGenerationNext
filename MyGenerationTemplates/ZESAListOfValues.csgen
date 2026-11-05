@@ -1,0 +1,287 @@
+﻿##|TYPE Template
+##|UNIQUEID 0684746a-5cea-457e-8eb7-fc92505ee5e1
+##|TITLE ZESAListOfValues
+##|NAMESPACE 
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE None
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll %>
+<%#NAMESPACE System, System.Text, System.Collections, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using EHA.ZESA.Util.GeneratorUI;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	// Spaltennamen für Kennung und Sortierung
+	private const string COL_KENNUNG    = "KENNUNG";
+	private const string COL_SORTIERUNG = "SORTIERUNG";
+	
+	// LOV hat Spalte SORT
+	private bool mHasSort    = false;
+	// LOV hat Spalte KENNUNG
+	private bool mHasKennung = false;
+	// gibt an, ob die Tabelle einen Integer OK hat
+	private bool mIsPrimaryKeyInteger = false;
+	
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+	  if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		ArrayList data = input["Data"] as ArrayList;
+		string filepath;
+	
+		// Filename info
+		filepath = input["TargetPath"].ToString();
+		if (!filepath.EndsWith("\\") ) filepath += "\\";
+		
+		// Create directory if it doesn't exist
+		if(!Directory.Exists(filepath))
+		{
+			Directory.CreateDirectory(filepath);
+		}
+		// Build the filename (one .cs file per table)
+		string filename = filepath + "ListOfValues.config";
+		
+		// File ausschecken
+		TfsHelper.Instance.CheckOut(filename);
+		
+		output.setPreserveSource(filename, "<!--####", "####-->");
+%><?xml version="1.0" encoding="utf-8" ?>
+<application>
+	<configuration>
+		<ListsOfValue>
+			<!-- SQL Server Verbindung-->
+			<DB_Connect ENCRYPTED="false" CONNECTSTRING="Persist Security Info=False;Initial Catalog=ZESA_ENTW;Data Source=HEW01EHA05\SQL2005;User ID=ZESA_TEST;Password=zesatest"
+				ASSEMBLY="System.Data" CONNECTION_CLASS="System.Data.SqlClient.SqlConnection" DATAREADER_CLASS="System.Data.SqlClient.SqlDataReader"
+				COMMAND_CLASS="System.Data.SqlClient.SqlCommand"></DB_Connect>
+			<MANDANT use="true" fieldname="Mandant" type="System.String">
+				<EXCLUDE>BA_MANDANT</EXCLUDE>
+				<EXCLUDE>BA_REGIONALSTRUKTUR</EXCLUDE>
+				<EXCLUDE>BA_BUCHUNGSKREIS</EXCLUDE>
+			</MANDANT>
+			<BUCHUNGSKREIS use="true" fieldname="Buchungskreis" type="System.String">
+				<EXCLUDE>BA_MANDANT</EXCLUDE>
+				<EXCLUDE>BA_REGIONALSTRUKTUR</EXCLUDE>
+				<EXCLUDE>BA_BUCHUNGSKREIS</EXCLUDE>
+			</BUCHUNGSKREIS>
+<%
+		output.preserve("Individuelle_Anpassungen");
+		foreach(GenInfo info in data)
+		{
+			// Liegt eine ListOfValue vor ???
+			if(info.Lov == false)
+			{
+				continue;
+			}
+			
+			IColumns cols = null;
+			string entityname = null;
+			string entitynameUpper;
+			
+			// Differenzen zwischen ITable und IView eliminieren
+			// Andrés dämliche Namenskonventionen behandeln
+			if(info.ObjectType == "Table")
+			{
+				ITable table = MyMeta.DefaultDatabase.Tables[info.ObjectName];
+				cols = table.Columns;
+				entityname = GeneratorHelper.ConvertName(info.EntityName);
+				entitynameUpper = info.EntityName;
+			}
+			else if(info.ObjectType == "View")
+			{
+				IView view = MyMeta.DefaultDatabase.Views[info.ObjectName];
+				cols = view.Columns;
+				entityname = GeneratorHelper.ConvertName(info.ObjectName);
+				entitynameUpper = info.ObjectName;
+			}
+			else if(info.ObjectType == "Function")
+			{
+				// Für Funktionen werden keine ColDefs angelegt
+				continue;
+			}
+			
+			// prüfen, ob Spalten SORT und KENNUNG existieren
+			mIsPrimaryKeyInteger = info.IsPrimaryKeyInteger;
+			mHasSort    = CheckForSortColumn(cols);
+			mHasKennung = CheckForKennungColumn(cols);
+			ArrayList columns = GetLovColumns(info.LovColumns);
+			foreach(string lovColumn in columns)
+			{
+%>
+<!-- <%=info.ObjectName%> - Spalte <%=lovColumn%> -->
+			<ListOfValue>
+				<ID><%=BuildLovName(entityname, lovColumn)%></ID>
+				<SQL><%=BuildSql(info, lovColumn)%></SQL>
+				<Attributes>
+<%
+						OutputAttributes(entityname, lovColumn); 
+%>					</Attributes>
+				<Reference ReadAlwaysNew="false"></Reference>
+			</ListOfValue>
+<%
+			}
+		}
+%>		</ListsOfValue>
+	</configuration>
+</application>
+<%
+		output.save(filename, false);
+		output.clear();
+		output.writeln("Generierung ListOfValue.config erfolgreich beendet...");
+		output.writeln("");
+		output.writeln("Ausgabeverzeichnis = " + filename);
+		output.writeln("");
+		string logname = input["TargetPath"].ToString();
+		if (!logname.EndsWith("\\") ) logname += "\\";
+		logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+		output.append(logname);
+		MyMeta.SaveUserMetaData();
+		output.clear();
+	}
+
+	// Prüfen, ob in der Tabelle die Spalte SORT definiert wurde
+	private bool CheckForSortColumn(IColumns pColumns)
+	{
+		foreach(Column col in pColumns)
+		{
+			if(col.Name == COL_SORTIERUNG)
+				return true;
+		}
+		return false;
+	}
+
+	// Prüfen, ob in der Tabelle die Spalte KENNUNG definiert wurde
+	private bool CheckForKennungColumn(IColumns pColumns)
+	{
+		foreach(Column col in pColumns)
+		{
+			if(col.Name == COL_KENNUNG)
+				return true;
+		}
+		return false;
+	}
+	
+	// ID der LOV bilden
+	private string BuildLovName(string pEntityName, string pColumn)
+	{
+		string result = pEntityName + "OrderBy";
+		if(mHasSort)
+		{
+			result += "Sort";
+		}
+		result += GeneratorHelper.ConvertName(pColumn);
+		result += "LOV";
+		return result;
+	}
+
+	// Sql zum Lesen der LOV bilden
+	private string BuildSql(GenInfo pInfo, string pColumn)
+	{
+		StringBuilder result = new StringBuilder("select ");
+		string entityName = GeneratorHelper.BuildEntityName(pInfo.ObjectName, pInfo.ObjectType);
+		result.Append(entityName + "_ID, ");
+		result.Append(pColumn);
+		if(mHasKennung)
+		{
+			result.Append(", " + COL_KENNUNG);
+		}
+		result.Append(" from " + pInfo.ObjectName);
+		result.Append(" order by ");
+
+		if((mHasSort) && (pInfo.LovColumns.IndexOf(COL_SORTIERUNG) < 0))
+		{
+			result.Append(COL_SORTIERUNG + ", ");
+		}
+		result.Append(pColumn);
+		return result.ToString();
+	}
+
+	// Ausgabe der Attribute einer LOV
+	private void OutputAttributes(string pEntityName, string pColumn)
+	{
+		int oldTabLevel = output.tabLevel;
+		output.tabLevel = 6;
+
+		// +3 wg. ID-Spalte
+		int maxLength = pEntityName.Length + 3;
+		if(pColumn.Length > maxLength)
+		{
+			maxLength = pColumn.Length;
+		}
+		if(COL_KENNUNG.Length > maxLength)
+		{
+			maxLength = COL_KENNUNG.Length;
+		}
+
+		// Primärschlüssel-Spalte
+		output.autoTab("<Attribute ID=\"");
+		output.write(pEntityName + "_Id\" " + GeneratorHelper.FillUp(pEntityName + "_Id", maxLength));
+		// Prüfung auf Integer PK, neue Logik
+		if(mIsPrimaryKeyInteger)
+		{
+		output.writeln("type = \"System.Int64\" PK=\"true\"></Attribute>");
+		}
+		else
+		{
+		output.writeln("type = \"System.Guid\" PK=\"true\"></Attribute>");
+		}
+		
+		// LOV-Spalte
+		output.autoTab("<Attribute ID=\"");
+		output.write(GeneratorHelper.ConvertName(pColumn) + "\" " + GeneratorHelper.FillUp(pColumn, maxLength));
+		output.writeln("type = \"System.String\"></Attribute>");
+
+		if(mHasKennung)
+		{
+			output.autoTab("<Attribute ID=\"");
+			output.write(GeneratorHelper.ConvertName(COL_KENNUNG) + "\" " + GeneratorHelper.FillUp(GeneratorHelper.ConvertName(COL_KENNUNG), maxLength));
+			output.writeln("type = \"System.String\"></Attribute>");
+		}
+		
+		output.tabLevel = oldTabLevel;
+	}
+	
+	// Wandelt die Spaltenliste für eine LOV in eine ArrayList um
+	private ArrayList GetLovColumns(string pColumns)
+	{
+		string[] parts = pColumns.Split(',');
+		ArrayList columns = new ArrayList();
+		foreach(string col in parts)
+		{
+			columns.Add(col.Trim());
+		}
+		return columns;
+	}
+}
+%>
+##|BODY_END

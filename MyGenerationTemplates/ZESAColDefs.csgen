@@ -1,0 +1,205 @@
+﻿##|TYPE Template
+##|UNIQUEID be6bebdd-0828-4a24-a5a4-68361cce2105
+##|TITLE ZESAColDefs
+##|NAMESPACE 
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE None
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll %>
+<%#NAMESPACE System, System.Text, System.Collections,System.Collections.Generic, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using System.Collections.Generic;
+using EHA.ZESA.Util.GeneratorUI;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+	  if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		ArrayList data = input["Data"] as ArrayList;
+		ArrayList csFiles = new ArrayList();
+		string filepath;
+		Dictionary<string,string> dbReaderDatatypeColumns;
+
+		foreach(GenInfo info in data)
+		{
+		if (info.UsesOldDataSetLogic){
+			IColumns cols = null;
+			string entityname = null;
+			string entitynameUpper = null;
+			
+			// übersteuernde Kriterien aufbauen
+			dbReaderDatatypeColumns = GeneratorHelper.GetDbReaderDatatypeColumns(info);
+			
+			// Differenzen zwischen ITable und IView eliminieren
+			if(info.ObjectType == "Table")
+			{
+				ITable table = MyMeta.DefaultDatabase.Tables[info.ObjectName];
+				cols = table.Columns;
+				entityname = GeneratorHelper.ConvertName(info.EntityName);
+				entitynameUpper = info.EntityName;
+			}
+			else if(info.ObjectType == "View")
+			{
+				IView view = MyMeta.DefaultDatabase.Views[info.ObjectName];
+				cols = view.Columns;
+				entityname = GeneratorHelper.ConvertName(info.ObjectName);
+				entitynameUpper = info.ObjectName;
+			}
+			else if(info.ObjectType == "Function")
+			{
+				// Für Funktionen werden keine ColDefs angelegt
+				continue;
+			}
+			
+			// Klassennamen bilden
+			string classname     = entityname + "ColDefs";
+			string fullClassname = "EHA.ZESA.Communication.RemotingServiceInterface.DAO." + info.Namespace + "." + entityname + "." + classname;
+
+			// dateinamen bilden
+			filepath = input["TargetPath"].ToString();
+			if (!filepath.EndsWith("\\") ) filepath += "\\";
+			filepath += "Communication\\RemotingServiceInterface\\DAO\\" + info.Namespace + "\\" + entityname + "\\";
+			
+			// Verzeichnis bei Bedarf anlegen
+			if(!Directory.Exists(filepath))
+			{
+				Directory.CreateDirectory(filepath);
+			}
+			string filename = filepath + entityname + "ColDefs.cs";
+			
+			// File ausschecken
+			TfsHelper.Instance.CheckOut(filename);
+			
+			// dateinamen für Logging zwischenspeichern
+			csFiles.Add(fullClassname);
+			
+			// Markierung für geschützten Bereich definieren
+			output.setPreserveSource(filename, "/***", "***/");
+%>using System;
+
+namespace EHA.ZESA.Communication.RemotingServiceInterface.DAO.<%=info.Namespace%>.<%=entityname%>
+{
+	/// <summary>
+	/// Spaltendefinitionen für die Entität <%=info.ObjectName%>.
+	/// </summary>
+	/// <remarks>
+	/// <para><b>Historie</b></para>
+	/// <div class="tablediv">
+	/// <table class="dtTABLE" cellspacing="0">
+	///		<tr>
+	///			<th width="20%">Autor</th>
+	///			<th width="20%">Datum</th>
+	///			<th width="60%">Bemerkungen</th>
+	///		</tr>
+	///		<tr>
+	///			<td width="20%">MyGeneration</td>
+	///			<td width="20%"><%=DateTime.Now.ToShortDateString()%></td>
+	///			<td width="60%">Erstellt</td>
+	///		</tr>
+	/// </table>
+	/// </div>
+	/// </remarks>
+	[Serializable]
+	public struct <%=classname%>
+	{
+		// Mögliche Tabellennamen der Entität <%=info.ObjectName%> im DataSet
+		public const string TBL_<%=entitynameUpper%>_BY_ID_DATA = "TD_<%=entityname%>_List";
+		public const string TBL_<%=entitynameUpper%>_BY_ID_STAT = "TS_<%=entityname%>_List";
+		public const string TBL_<%=entitynameUpper%>_BY_ID_COL  = "TC_<%=entityname%>_List";
+		public const string TBL_<%=entitynameUpper%>_LIST_DATA  = "TD_<%=entityname%>_List";
+		public const string TBL_<%=entitynameUpper%>_LIST_STAT  = "TS_<%=entityname%>_List";
+		public const string TBL_<%=entitynameUpper%>_LIST_COL   = "TC_<%=entityname%>_List";
+
+		// Attribute von der Entität <%=info.ObjectName%>
+<% OutputAttributes(cols, dbReaderDatatypeColumns);%>
+
+<%
+		output.preserve("Individuelle_Anpassungen");
+%>
+	}
+}<%
+			output.save(filename, false);
+      output.clear();	
+		}//if (info.UsesOldDataSetLogic){
+		}
+		// Logging
+		output.clear();
+		output.writeln("Generierung ColDefs-Klassen erfolgreich beendet...");
+		output.writeln("");
+		output.writeln("Ausgabeverzeichnis = " + input["TargetPath"]);
+		output.writeln("");
+		output.writeln("Folgende Dateien wurden generiert:" );
+		output.writeln("");
+		foreach(string csFile in csFiles)
+		{
+		    output.writeln(csFile);
+		}
+		output.writeln("");
+		output.writeln("==> Ende <==");
+		output.writeln("");
+		string logname = input["TargetPath"].ToString();
+		if (!logname.EndsWith("\\") ) logname += "\\";
+		logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+		output.append(logname);
+		output.clear();
+		MyMeta.SaveUserMetaData();
+	}
+
+	// Gibt alle Spalten der Tabelle als Attribute-Attribut aus
+	// Beispiel:
+	// public const string BENUTZER_ID = "Benutzer_Id";
+	private void OutputAttributes(IColumns pColumns, Dictionary<string,string> pDbReaderDatatypeCols)
+	{
+		if(null != pColumns)
+		{
+			int oldTabLevel = output.tabLevel;
+			output.tabLevel = 2;
+			int maxLength = GeneratorHelper.MaxColLength(pColumns);
+			foreach(Column col in pColumns)
+			{
+				output.autoTabLn("public const string " + col.Name.ToUpper() + GeneratorHelper.FillUp(col.Name, maxLength) + "     = \"" + GeneratorHelper.ConvertName(col.Name) + "\";");
+				if(GeneratorHelper.IsNumeric(col, pDbReaderDatatypeCols))
+				{
+					output.autoTabLn("public const string VON_" + col.Name.ToUpper() + GeneratorHelper.FillUp(col.Name, maxLength) + " = \"Von_" + GeneratorHelper.ConvertName(col.Name) + "\";");
+					output.autoTabLn("public const string BIS_" + col.Name.ToUpper() + GeneratorHelper.FillUp(col.Name, maxLength) + " = \"Bis_" + GeneratorHelper.ConvertName(col.Name) + "\";");
+				}
+			}
+			output.tabLevel = oldTabLevel;
+		}
+		
+	}
+}
+%>
+##|BODY_END

@@ -1,0 +1,1247 @@
+﻿##|TYPE Template
+##|UNIQUEID 0d640e13-ff2e-43b7-b5f1-35ce9f45acab
+##|TITLE ZESAStammdatenuebernahme
+##|NAMESPACE 
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE None
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll, mscorlib.dll %>
+<%#NAMESPACE System, System.Text, System.Collections, System.Collections.Generic, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+		input["StammdatenWithForeignKeys"] = ui.StammdatenWithForeignKeys;
+	}
+
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using EHA.ZESA.Util.GeneratorUI;
+using System.Collections.Generic;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+		if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		
+		ArrayList generatedUsings = GetUsings();
+		ArrayList generatedTables = new ArrayList();
+		ArrayList data = input["Data"] as ArrayList;
+		ArrayList stammdatenWithForeignKeys = input["StammdatenWithForeignKeys"] as ArrayList;
+		
+		// Wenn es nichts zum Generieren gibt, gehe zurück
+		if(0 == stammdatenWithForeignKeys.Count)
+		{
+			output.writeln("Generierung beendet...");
+			return;
+		}
+		
+		// Klassennamen bilden
+		string classname   = "Datenabgleich";
+		string fullClassname = "EHA.ZESA.Server.Allgemein." + classname;
+			
+		// Dateinamen bilden
+		string filepath = input["TargetPath"].ToString();
+		if (!filepath.EndsWith("\\") ) filepath += "\\";
+		filepath += "Server\\ZESAServer\\Allgemein\\";
+		
+		// Verzeichnis bei Bedarf anlegen
+		if(!Directory.Exists(filepath))
+		{
+			Directory.CreateDirectory(filepath);
+		}
+		string filename  = filepath + classname + ".cs";
+		
+		// File ausschecken
+		TfsHelper.Instance.CheckOut(filename);
+		
+		// Markierung für geschützten Bereich im Source definieren
+		output.setPreserveSource(filename, "/***", "***/");%>using System;
+using System.Collections;
+using System.Data;
+using System.Data.SqlClient;
+using System.Diagnostics;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using EHA.ZESA.Communication.RemotingServiceInterface.Allgemein;
+using EHA.ZESA.Communication.RemotingServiceInterface.Allgemein.ClientContext;
+using EHA.ZESA.Communication.RemotingServiceInterface.DAO.Basis.Konfiguration;
+using EHA.ZESA.Communication.RemotingServiceInterface.DAO.Basis.Buchungskreis;
+using EHA.ZESA.Communication.RemotingServiceInterface.DAO.Basis.Mandant;
+using EHA.ZESA.Server.BusinessFacade.Allgemein;
+using EHA.ZESA.Server.BusinessFacade.Basis;
+<%
+		// StammdatenuebernahmeInfo hilft uns die usings aufzubauen
+		string entityname;
+		string entitynameUpper;
+		string entititynameLower;
+		string kennungColumn;
+		foreach(StammdatenuebernahmeInfo sInfo in stammdatenWithForeignKeys)
+		{
+			// Schon generiert? weiter gehen
+			if(generatedTables.Contains(sInfo.ObjectName))
+				continue;
+			
+			string objectNamePkTable = sInfo.ObjectName;
+			string entityNamePkTable = GeneratorHelper.ConvertName(GeneratorHelper.BuildEntityName(objectNamePkTable, "Table"));
+					
+			// zuerst die Foreign Keys durchgehen und dafür den Abgleich generieren
+			string objectNameFkTable;
+			string entityNameFkTable;
+			string interfaceUsing;
+			string serverUsing;
+			foreach(StammdatenuebernahmeInfo sInfoForeignKey in sInfo.ForeignKeys)
+			{
+				// Schon generiert? weiter gehen
+				if(generatedTables.Contains(sInfoForeignKey.ObjectName))
+					continue;
+							
+				objectNameFkTable = sInfoForeignKey.ObjectName;
+				entityNameFkTable = GeneratorHelper.ConvertName(GeneratorHelper.BuildEntityName(objectNameFkTable, "Table"));
+				
+				// Usings Prüfen (FK)
+				interfaceUsing = "EHA.ZESA.Communication.RemotingServiceInterface.DAO."+sInfoForeignKey.Namespace+"."+entityNameFkTable;
+				serverUsing = "EHA.ZESA.Server.DAO."+sInfoForeignKey.Namespace;%><%if(!generatedUsings.Contains(interfaceUsing)){%>
+using <%=interfaceUsing%>;<%generatedUsings.Add(interfaceUsing);}%><%if(!generatedUsings.Contains(serverUsing)){%>
+using <%=serverUsing%>;<%generatedUsings.Add(serverUsing);}%><%	generatedTables.Add(sInfoForeignKey.ObjectName);}
+			// Prüfliste wieder leeren
+			generatedTables.Clear();
+			// Usings Prüfen (PK)
+			interfaceUsing = "EHA.ZESA.Communication.RemotingServiceInterface.DAO."+sInfo.Namespace+"."+entityNamePkTable;
+			serverUsing = "EHA.ZESA.Server.DAO."+sInfo.Namespace;%><%if(!generatedUsings.Contains(interfaceUsing)){%>
+using <%=interfaceUsing%>;<%generatedUsings.Add(interfaceUsing);}%><%if(!generatedUsings.Contains(serverUsing)){%>
+using <%=serverUsing%>;<%generatedUsings.Add(serverUsing);}%><%generatedTables.Add(sInfo.ObjectName);}
+		// nachdem wir dei usings aufgebaut haben können wir unsere Liste
+		// wieder zurücksetzen
+		generatedTables.Clear();
+%>
+using EHA.ZESA.Components.DbReader;
+using EHA.ZESA.Components.DbWriter;
+using EHA.ZESA.Components.DbWriter.Exceptions;
+using EHA.ZESA.Components.Log4NetWrapper;
+
+<% output.preserve("Individuelle_Usings");%>
+
+namespace EHA.ZESA.Server.Allgemein
+{
+/// <summary>
+/// Die Klasse übernimmt den Abgleich von Tabellen 
+/// mit den nächst niedrigeren System beim ZESA Releasewechsel.
+/// Mit Hilfe des BusinessLogic Generators wird diese Klasse generiert.
+/// </summary>
+/// <remarks>
+/// <para><b>Historie</b></para>
+/// <div class="tablediv">
+/// <table class="dtTABLE" cellspacing="0">
+///		<tr>
+///			<th width="20%">Autor</th>
+///			<th width="20%">Datum</th>
+///			<th width="60%">Bemerkungen</th>
+///		</tr>
+///		<tr>
+///			<td width="20%">MyGeneration</td>
+///			<td width="20%"><%=DateTime.Now.ToString()%></td>
+///			<td width="60%">Erstellt</td>
+///		</tr>
+/// </table>
+/// </div>
+/// </remarks>
+public class Datenabgleich
+{
+	#region Member-Variablen
+	
+	/// <summary>
+    /// Instanz des Loggers für serverseitiges Debugging 
+    /// </summary>
+    private static readonly Logger mLog = new Logger(typeof(Datenabgleich));
+
+    // Die einzige Instanz unserer Datenabgleich-Klasse.
+    // Die Variable ist "volatile" deklariert, um sicherzustellen
+    // das die Zuweisung zu der Instanzvariablen abgeschlossen ist,
+    // bevor auf sie zugegriffen werden kann.
+    private static volatile Datenabgleich mInstance;
+       
+    // Dieses Objekt wird zum Sperren des Threads verwendet.
+    // Dadurch, dass dieses Objekt anstelle der Datenabgleich-Instanz
+    // an "lock()" übergeben wird, werden Deadlocks vermieden.
+    private static readonly object mSyncRoot = new Object();
+
+    // MailText und SqlConnection
+    private StringBuilder mMailText = new StringBuilder();
+    private SqlConnection mSqlConnection;
+       
+    // Context und Umgebung
+    private ClientContext mContextTemp;
+    private string mUmgebung = string.Empty;
+    private string mZielSystem = string.Empty;
+    private string mQuellSystem = "Unbekannt";
+    private string mBatchServerUrl = string.Empty;
+        
+    // DebugValues
+    private int mCount;
+	// Fehler aufgetreten?
+	private bool mIstWaehrendAbgleichFehlerAufgetreten;
+	
+	#endregion Member-Variablen
+	
+	#region Konstruktoren
+	
+	/// <summary>
+    /// privater Konstruktor, da Singleton
+    /// </summary>
+    private Datenabgleich()
+    {
+       Initialisierung();
+    }
+	
+	#endregion Konstruktoren
+	
+	#region Initialisierung
+	
+	/// <summary>
+    /// Initialisierung
+    /// </summary>
+    private void Initialisierung()
+    {
+        // SQL Connection aufbauen
+        mSqlConnection = new SqlConnection(ConfigValues.Instance.GetConnectionStringForDatenabgleichDataSource());
+           
+        // den Temporären Context initialisieren
+        mContextTemp = GetClientContext(KennungDefinitions.BA_MANDANT_EHA, KennungDefinitions.BA_BUCHUNGSKREIS_EHA);
+
+        // Umgebung setzen
+        mUmgebung = SchnittstellenUtilities.GetInstance().CurrentEnvironment;
+
+        // Batchserver identifizieren
+        mBatchServerUrl = ConfigValues.Instance.BatchServerUrl;
+
+        // Quelle und Ziel bestimmen
+        mZielSystem = SchnittstellenUtilities.GetInstance().CurrentEnvironment;
+        string[] conStringArray = mSqlConnection.ConnectionString.Split(';');
+        for (int i = 0; i < conStringArray.Length; i++)
+		{
+			if (conStringArray[i].ToLower().Contains("catalog"))
+				mQuellSystem = conStringArray[i].Replace("Initial Catalog=", string.Empty);
+		}
+
+		// Logger Initialisieren
+		mLog.Init(true);
+        }
+	
+	#endregion Initialisierung
+	
+	#region Property-Methoden
+	
+	/// <summary>
+    /// gibt die einzige Instanz dieser Klasse zurück
+    /// </summary>
+    public static Datenabgleich Instance
+    {
+        get
+        {
+            // DoubleLock 
+            if (mInstance == null)
+                lock (mSyncRoot) { if (mInstance == null) mInstance = new Datenabgleich(); }
+            return mInstance;
+        }
+    }
+	
+	#endregion Property-Methoden
+	
+	#region Öffentliche Methoden
+	
+	/// <summary>
+    /// Prüft ob ein Datenabgleich durchgeführt werden muss und führt diesen dann ggf. durch
+    /// </summary>
+    public void PruefeAufDatenabgleich()
+    {
+        // wir locken die Vorbereitung, damit niemand uns in die Quere kommt.
+        lock(mSyncRoot)
+        {
+            VorbereitungDatenabgleich();
+        }
+    }
+	
+	#endregion Öffentliche Methoden
+	
+	#region Datenabgleich Initialisierung / Vorprüfung
+	
+	/// <summary>
+    /// Dies Methode übernimmt ein paar Prüfungen, die im Vorwege des Abgleichs durchzuführen sind
+    /// </summary>
+    private void VorbereitungDatenabgleich()
+    {
+        try
+        {
+            // Fehlervariable auf false setzen
+            mIstWaehrendAbgleichFehlerAufgetreten = false;
+			
+			// wir prüfen nur auf Datenabgleich wenn wir uns auf dem normale ZESA-Applikationsserver befinden
+            // wenn wir auf dem Auslagerungsserver sind, gehts zurück...
+            if (mBatchServerUrl.ToLower().Contains(Environment.MachineName.ToLower()) || mBatchServerUrl.ToLower().Contains("localhost"))
+            {
+                // es sei denn wir sind INTEG, denn dort läuft der Batchserver und AppServer 
+                // auf einer Maschine...
+                if (!mUmgebung.Equals(Globals.TEST))
+                    return;
+            }
+
+            int fehler = 0;
+            string doAbgleich = string.Empty;
+            do
+            {
+                // wir lesen den Wert aus der LOV
+                try
+                {
+                    // Wir prüfen für DE
+                    doAbgleich = Utilities.GetLovValueByKennung(mContextTemp, "KonfigurationOrderBySortLOV", KennungDefinitions.SY_KONFIGURATION_DATENABGLEICH, KonfigurationDAO.WERT);
+                    if(!string.IsNullOrEmpty(doAbgleich) && !Convert.ToBoolean(doAbgleich))
+                    {
+                        // wir prüfen für AT
+                        // wir setzen den Mandant und Buchungskreis auf EHA AT damit z.B. LOV abfragen funktionieren!
+                        mContextTemp.Mandant = KennungDefinitions.BA_MANDANT_EHA_AUSTRIA;
+                        mContextTemp.Buchungskreis = KennungDefinitions.BA_BUCHUNGSKREIS_EHA_AUSTRIA;
+                        doAbgleich = Utilities.GetLovValueByKennung(mContextTemp, "KonfigurationOrderBySortLOV", KennungDefinitions.SY_KONFIGURATION_DATENABGLEICH, KonfigurationDAO.WERT);
+                        if(!string.IsNullOrEmpty(doAbgleich) && !Convert.ToBoolean(doAbgleich))
+                        {
+                            // wir prüfen für CH
+                            // wir setzen den Mandant und Buchungskreis auf EHA CH damit z.B. LOV abfragen funktionieren!
+                            mContextTemp.Mandant = KennungDefinitions.BA_MANDANT_EHA_SCHWEIZ;
+                            mContextTemp.Buchungskreis = KennungDefinitions.BA_BUCHUNGSKREIS_EHA_SCHWEIZ;
+                            doAbgleich = Utilities.GetLovValueByKennung(mContextTemp, "KonfigurationOrderBySortLOV", KennungDefinitions.SY_KONFIGURATION_DATENABGLEICH, KonfigurationDAO.WERT);
+                        }
+                        // wir setzen den Mandant und Buchungskreis wieder auf EHA DE damit z.B. LOV abfragen wieder funktionieren!
+                        mContextTemp.Mandant = KennungDefinitions.BA_MANDANT_EHA;
+                        mContextTemp.Buchungskreis = KennungDefinitions.BA_BUCHUNGSKREIS_EHA;
+                    }
+                }
+                catch
+                {
+                    // einen Fehler registrieren
+                    ++fehler;
+
+					// wir starten maximal 3 Versuche bevor wir aufgeben.
+                    switch (fehler)
+                    {
+                        case 1:
+                            //wir warten zwischen 1 und 20 sek.
+                            Thread.Sleep(LogErrorAndGetDelay(fehler));
+                            break;
+                        case 2:
+                            //wir warten zwischen 10 und 40 sek.
+                            Thread.Sleep(LogErrorAndGetDelay(fehler));
+                            break;
+                        case 3:
+                            //wir warten zwischen 30 und 50 sek.
+                            Thread.Sleep(LogErrorAndGetDelay(fehler));
+                            break;
+                        default:
+                            // danach brechen wir ab
+                            throw;
+                    }
+                }
+            } while (string.IsNullOrEmpty(doAbgleich));
+
+            // wenn der Abgleich durchgeführt werden soll...
+            if (!string.IsNullOrEmpty(doAbgleich))
+            {
+                if (Convert.ToBoolean(doAbgleich))
+                {
+                    // wir löschen den Mandant und Buchungskreis um alle Datensätze im Update zu erwischen!
+                    mContextTemp.Mandant = String.Empty;
+                    mContextTemp.Buchungskreis = String.Empty;
+
+                    // Wenn ein Abgleich durchgeführt werden soll, so erst einaml DB aktualsieren und LOV neu einlesen!
+                    KonfigurationDAO konfigurationDao = new KonfigurationDAO();
+                    konfigurationDao.PrmKennung = KennungDefinitions.SY_KONFIGURATION_DATENABGLEICH;
+                    konfigurationDao = new Konfiguration().GetByParam(mContextTemp, konfigurationDao);
+                    // Wert ändern
+                    for (int i = 0; i < konfigurationDao.GetRecordCount(); i++)
+					{
+						konfigurationDao.SetValue(i, KonfigurationDAO.WERT, Globals.DB_VALUE_FALSE);
+					}
+					// Update durchführen   
+					new Konfiguration().Update(mContextTemp, konfigurationDao);
+
+					// wir setzen den Mandant und Buchungskreis wieder auf EHA DE damit z.B. LOV abfragen wieder funktionieren!
+					mContextTemp.Mandant = KennungDefinitions.BA_MANDANT_EHA;
+					mContextTemp.Buchungskreis = KennungDefinitions.BA_BUCHUNGSKREIS_EHA;
+
+					// Wertelisten neu einlesen
+					new LovNeuEinlesenManager().ReReadAllLists();
+
+					// nachdem das alles erledigt ist, führen wir den Abgleich durch
+					FuehreDatenabgleichDurch();
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			mMailText.AppendFormat("Umgebung: {0} Quelle: {1} Ziel: {2} Fehler:", mUmgebung, mQuellSystem, mZielSystem);
+			mMailText.AppendLine(ex.ToString());
+			mMailText.AppendFormat("Der Datenabgleich wird automatisch erneut durchgeführt, er wurde für Version {0} bis jetzt {1} mal aufgerufen.", VersionInfoManager.GetAppVersion(), mCount);
+			SendMail(mUmgebung + " Beim Vorbereiten des Datenabgleichs ist ein Fehler aufgetreten");
+		}
+	}
+		
+	/// <summary>
+    /// übernimmt den Abgleich
+    /// </summary>
+    private void FuehreDatenabgleichDurch()
+    {
+        // Laufzeitmessung
+        Stopwatch myStopwatch = new Stopwatch();
+        myStopwatch.Start();
+
+        mMailText.AppendLine("## ACHTUNG - zur besseren Lesbarkeit evtl. die entfernten Zeilenumbrüche wiederherstellen ##");
+        mMailText.AppendLine();
+        mMailText.AppendLine("Der Datenabgleich wurde ($FEHLERVALUE$) mit folgendem Ergebnis beendet: ");
+            
+        // wir initialisieren zuerst einmal ein paar Variablen
+        BuchungskreisDAO prmBuchungskreisDao = new BuchungskreisDAO();
+        BuchungskreisDAO buchungskreisDao;
+        Buchungskreis buchungskreisServerDao = new Buchungskreis();
+            
+        // Context aufbauen
+        ClientContext context = GetClientContext(KennungDefinitions.BA_MANDANT_EHA, KennungDefinitions.BA_BUCHUNGSKREIS_EHA);
+        // Mandant und Buchungskreis werden erstmal entfernt, da sie im späteren Verlauf noch entsprechend der Datenbankinformationen gesetzt werden
+        context.Mandant = String.Empty;
+        context.Buchungskreis = String.Empty;
+
+        try
+        {
+            // Debugvariable hochzählen
+            mCount++;
+                
+            // Lese alle Mandanten aus
+            ArrayList orderList = new ArrayList();
+            orderList.Add(new OrderCriteria(MandantDAO.MANDANT));
+            MandantDAO prmMandantDao = new MandantDAO { PrmMandant = Globals.PARAMETER_IS_NOT_NULL };
+            MandantDAO mandantDao = new Mandant().GetByParamAll(context, prmMandantDao, orderList);
+
+            // Arbeite jeden Mandanten einzeln ab
+            for (int i = 0; i < mandantDao.GetRecordCount(); i++)
+			{
+				// zuerst werden die zugehörigen Buchungskreise ausgelesen
+				mandantDao.SetCurrentRow(i);
+
+				// für die Schweiz vorserst keinen Abgleich durchführen, da heir wichtige Stammdaten fehlen
+			    if (mandantDao.StrMandant.Equals(KennungDefinitions.BA_MANDANT_EHA_SCHWEIZ))
+			        continue;
+
+				// ggf. den Buchungskreis aus dem Context löschen
+				context.Buchungskreis = String.Empty;
+				context.Mandant = mandantDao.StrMandant;
+				prmBuchungskreisDao.PrmMandant_Id = mandantDao.StrMandant_Id;
+				// Buchungskreis auslesen
+				buchungskreisDao = buchungskreisServerDao.GetByParamAll(context, prmBuchungskreisDao);
+
+				// Starte für jeden Buchungskreis des Mandanten den Datenabgleich
+				for (int j = 0; j < buchungskreisDao.GetRecordCount(); j++)
+				{
+					buchungskreisDao.SetCurrentRow(j);
+					context.Buchungskreis = buchungskreisDao.StrBuchungskreis;
+
+				<%
+				// Wir generieren den Datenabgleich
+				int zaehler = 1;
+				foreach(StammdatenuebernahmeInfo sInfo in stammdatenWithForeignKeys)
+				{
+					string objectNamePkTable = sInfo.ObjectName;
+					string entityNamePkTable = GeneratorHelper.ConvertName(GeneratorHelper.BuildEntityName(objectNamePkTable, "Table"));
+					
+					ArrayList foreignKeys = sInfo.ForeignKeys;
+					
+					// zuerst die Foreign Keys durchgehen und dafür den Abgleich generieren
+					string objectNameFkTable;
+					string entityNameFkTable;
+					
+					foreach(StammdatenuebernahmeInfo sInfoForeignKey in foreignKeys)
+					{
+						// Schon generiert? weiter gehen
+						if(generatedTables.Contains(sInfoForeignKey.ObjectName))
+							continue;
+							
+						objectNameFkTable = sInfoForeignKey.ObjectName;
+						entityNameFkTable = GeneratorHelper.ConvertName(GeneratorHelper.BuildEntityName(objectNameFkTable, "Table"));
+					%>
+					// <%=zaehler.ToString()%>. <%=objectNameFkTable%>
+					mMailText.AppendLine();
+					mMailText.AppendFormat("Verarbeite Tabelle <%=objectNameFkTable%> Mandant {0} Buchungskreis {1}:", context.Mandant, context.Buchungskreis);
+					mMailText.AppendLine();
+					<%=entityNameFkTable%>DAO update<%=entityNameFkTable%>DAO = Datenabgleich<%=entityNameFkTable%>(context);
+					<%
+						zaehler++;
+						generatedTables.Add(sInfoForeignKey.ObjectName);
+					}
+					// Schon generiert? weiter gehen
+					if(generatedTables.Contains(objectNamePkTable))
+						continue;
+					
+					// prüfen ob Parameter mit generiert werden müssen
+					if(foreignKeys.Count > 0)
+					{
+						// mit Parameter
+						string parameter = string.Empty;
+						foreach(StammdatenuebernahmeInfo sInfoForeignKey in foreignKeys)
+						{
+							parameter += @" ref update" + GeneratorHelper.ConvertName(GeneratorHelper.BuildEntityName(sInfoForeignKey.ObjectName, "Table")) + "DAO,";
+						}
+						// letztes Komma elimieren
+						if(!string.IsNullOrEmpty(parameter))
+							parameter = parameter.Substring(0,parameter.Length-1);
+						%>
+					// <%=zaehler.ToString()%>. <%=objectNamePkTable%>
+					mMailText.AppendLine();
+					mMailText.AppendFormat("Verarbeite Tabelle <%=objectNamePkTable%> Mandant {0} Buchungskreis {1}:", context.Mandant, context.Buchungskreis);
+					mMailText.AppendLine();
+					<%=entityNamePkTable%>DAO update<%=entityNamePkTable%>DAO = Datenabgleich<%=entityNamePkTable%>(context, <%=parameter%>);
+					<%
+					}
+					else
+					{
+					// ohne Parameter
+					%>
+					// <%=zaehler.ToString()%>. <%=objectNamePkTable%>
+					mMailText.AppendLine();
+					mMailText.AppendFormat("Verarbeite Tabelle <%=objectNamePkTable%> Mandant {0} Buchungskreis {1}:", context.Mandant, context.Buchungskreis);
+					mMailText.AppendLine();
+					<%=entityNamePkTable%>DAO update<%=entityNamePkTable%>DAO = Datenabgleich<%=entityNamePkTable%>(context);
+					<%
+					}
+				zaehler++;
+				generatedTables.Add(objectNamePkTable);
+				}
+				%>
+					// Update durchführen
+					Guid transactionId = Guid.Empty;
+					try
+					{
+						// Transaktionssteuerung
+						transactionId = DbWriter.Instance.GetTransaction();
+					<%
+					// Wir generieren das Update
+					zaehler = 1;
+					string objectName;
+					string entityName;
+					foreach(string tableName in generatedTables)
+					{
+						objectName = tableName;
+						entityName = GeneratorHelper.ConvertName(GeneratorHelper.BuildEntityName(objectName, "Table"));
+						%>
+						// <%=zaehler.ToString()%>. <%=objectName%>
+						if (update<%=entityName%>DAO.HasRecord())
+							new <%=entityName%>().Update(context, update<%=entityName%>DAO, transactionId);
+						<%
+						zaehler++;
+					}
+					%>
+						// Transaktion abschliessen
+						DbWriter.Instance.CommitTransaction(transactionId);
+					}
+					catch (Exception ex)
+					{
+						mIstWaehrendAbgleichFehlerAufgetreten = true;
+						mMailText.AppendLine("Das Speichern im Datenabgleich ist fehlgeschlagen Grund: " + Environment.NewLine + ex);
+
+						// Wurde eine Transaktion gestartet (Transaktions-ID ist nicht leer)?
+						if (!transactionId.Equals(Guid.Empty))
+						{
+							// Auch das Rollback kann potentiell fehlschlagen!
+							try
+							{
+								DbWriter.Instance.RollbackTransaction(transactionId);
+							}
+							catch (DbWriterException e)
+							{
+								mMailText.AppendLine("Rollback für Kontext <" + context + "> ist fehlgeschlagen: " + Environment.NewLine + e);
+							}
+						}
+					}
+
+					// wir führen die fachlichen Prüfungen durch
+					FuehreFachlichePruefungenDurch(context);
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			mIstWaehrendAbgleichFehlerAufgetreten = true;
+			// Zeilenumbruch wenn schon Text vorhanden ist
+			if (mMailText.Length > 0)
+				mMailText.AppendLine();
+
+             // und die Exception anhängen
+             mMailText.AppendLine("Beim Durchführen des Datenabgleich ist folgender Fehler aufgetreten: " + Environment.NewLine + ex);
+		}
+
+		// wir vermerken noch, wie lange der Abgleich gedauert hat
+		myStopwatch.Stop();
+		mMailText.AppendLine();
+		mMailText.AppendFormat("Dauer des Datenabgleichs: {0} sec.", myStopwatch.ElapsedMilliseconds / 1000);
+		mMailText.AppendLine();
+		mMailText.AppendFormat("Der Datenabgleich wurde für Version {0} bis jetzt {1} mal durchgeführt.", VersionInfoManager.GetAppVersion(), mCount);
+            
+		// alles durchlaufen? dann versenden wir die Zusammnefassung per Mail
+		SendMail("Datenabgleich Releasewechsel Version " + VersionInfoManager.GetAppVersion() + " Quelle: " + mQuellSystem + " Ziel: " + mZielSystem);
+    }
+
+	#endregion Datenabgleich Initialisierung / Vorprüfung / Hauptmethode Datenabgleich
+	
+	#region Abgleichmethoden
+	
+	<%
+	// wir generieren nun für jede Tabelle eine Abgleichmethode
+	foreach(GenInfo info in data)
+	{
+		if (info.Stammdatenuebernahme && generatedTables.Contains(info.ObjectName))
+		{
+			ITable table = MyMeta.DefaultDatabase.Tables[info.ObjectName];
+			IColumns cols = table.Columns;
+			bool hasGeloescht = CheckForColumn(cols, "GELOESCHT");
+			
+			entityname = GeneratorHelper.ConvertName(info.EntityName);
+			entitynameUpper = info.EntityName;
+			entititynameLower = entitynameUpper.ToLower();
+			kennungColumn = GeneratorHelper.ConvertName(info.AliasKennungColumn);
+			
+			ArrayList columnsForUniqueIndices = new ArrayList();
+			
+			string parameter = string.Empty;
+			foreach(StammdatenuebernahmeInfo sInfo in stammdatenWithForeignKeys)
+			{
+				if(!sInfo.ObjectName.Equals(info.ObjectName))
+					continue;
+				
+				// UniqueIndices Columns setzen
+				columnsForUniqueIndices = sInfo.ColumnsForUniqueIndices;
+				
+				string entitiyName;
+				foreach(StammdatenuebernahmeInfo sInfoForeignKey in sInfo.ForeignKeys)
+				{
+					entitiyName = GeneratorHelper.ConvertName(GeneratorHelper.BuildEntityName(sInfoForeignKey.ObjectName, "Table"));
+					parameter += @" ref " + entitiyName + "DAO pAbgleich" + entitiyName + "DAO,";
+				}
+				// nach getaner Arbeit schleife verlassen
+				break;
+			}
+			
+%>
+	/// <summary>
+    /// führt den Datenabgleich der Tabelle <%=info.ObjectName%> durch
+    /// </summary>
+    /// <returns></returns>	<%
+	if(parameter.Length > 0)
+	{
+	// letztes Komma elimieren
+	parameter = parameter.Substring(0,parameter.Length-1);
+	%>
+	private <%=entityname%>DAO Datenabgleich<%=entityname%>(ClientContext pContext, <%=parameter%>)
+	<%
+	}
+	else
+	{
+	%>
+	 private <%=entityname%>DAO Datenabgleich<%=entityname%>(ClientContext pContext)
+	<%
+	}
+	%>
+	{
+        // ALLE Datensätze auslesen
+        <%=entityname%>DAO <%=entititynameLower%> = new <%=entityname%>DAO();
+        <%if(hasGeloescht){%>
+		<%=entititynameLower%>.AddPrmGeloescht_Array(Globals.PARAMETER_DB_TRUE);
+        <%=entititynameLower%>.AddPrmGeloescht_Array(Globals.PARAMETER_DB_FALSE);
+        <%}%>
+		<%=entititynameLower%> = new <%=entityname%>().GetByParamAll(pContext, <%=entititynameLower%>);
+
+        // ermittle letztes Insert (lokal)
+        DateTime lastInsertDate = DateTime.Today;
+		var lastInsertList = from row in <%=entititynameLower%>.GetTable(<%=entityname%>DAO.TBL_DATA).AsEnumerable()
+                                                  where row[<%=entityname%>DAO.INSDATE] != DBNull.Value
+                                                  select row[<%=entityname%>DAO.INSDATE];
+		if (lastInsertList.Any())
+            lastInsertDate = Convert.ToDateTime(lastInsertList.Max());
+			
+        // ermittle letztes Update (lokal)
+		DateTime lastUpdateDate =  DateTime.Today;
+        var lastUpdateList = from row in <%=entititynameLower%>.GetTable(<%=entityname%>DAO.TBL_DATA).AsEnumerable()
+                                                  where row[<%=entityname%>DAO.UPDDATE] != DBNull.Value
+                                                  select row[<%=entityname%>DAO.UPDDATE];
+		if (lastUpdateList.Any())
+            lastUpdateDate = Convert.ToDateTime(lastUpdateList.Max());
+
+        // Hole von der Source alles was größer dem Insdate und größer dem Update der letzten 60 Tage ist.
+		// Das sollte auf jeden Fall genug Sicherheitspuffer sein um alle Anpassungen (auch die per Skript
+		// durchgeführt worden sind) mitzubekommen.
+        <%=entityname%>DAO <%=entititynameLower%>Temp = new <%=entityname%>DAO();
+        <%=entititynameLower%>Temp.PrmVon_Insdate = lastInsertDate.AddDays(-60).ToString();
+        <%if(hasGeloescht){%>
+		// unbedingt gelöschte mit Berücksichtigen!
+        <%=entititynameLower%>Temp.AddPrmGeloescht_Array(Globals.PARAMETER_DB_TRUE);
+        <%=entititynameLower%>Temp.AddPrmGeloescht_Array(Globals.PARAMETER_DB_FALSE);
+        <%}%>
+		string sql = "(" + new <%=entityname%>().GetQuerySQL(pContext, <%=entititynameLower%>Temp, null) + ") UNION (";
+
+        <%=entititynameLower%>Temp = new <%=entityname%>DAO();
+        <%=entititynameLower%>Temp.PrmVon_Upddate = lastUpdateDate.AddDays(-60).ToString();
+        <%if(hasGeloescht){%>
+		// unbedingt gelöschte mit Berücksichtigen!
+        <%=entititynameLower%>Temp.AddPrmGeloescht_Array(Globals.PARAMETER_DB_TRUE);
+        <%=entititynameLower%>Temp.AddPrmGeloescht_Array(Globals.PARAMETER_DB_FALSE);
+        <%}%>
+		sql += new <%=entityname%>().GetQuerySQL(pContext, <%=entititynameLower%>Temp, null) + ")";
+
+		// ggf. wird noch ein Order Kriterium angehängt
+		sql = GetOrderForSqlString(<%=entititynameLower%>, sql);
+		
+        // Verbinden uns gegen die Datenbank
+        <%=entityname%>DAO <%=entititynameLower%>Quelle;
+        try
+        {
+            // wir öffnen die connection
+            if (mSqlConnection.State != ConnectionState.Open)
+                mSqlConnection.Open();
+
+			using (SqlDataAdapter sqlAdapter = new SqlDataAdapter(sql, mSqlConnection))
+            {
+                DataSet <%=entititynameLower%>QuellDs = new DataSet();
+                <%=entititynameLower%>QuellDs.Tables.Add(new DataTable(<%=entityname%>DAO.TBL_DATA));
+                sqlAdapter.Fill(<%=entititynameLower%>QuellDs.Tables[<%=entityname%>DAO.TBL_DATA]);
+                <%=entititynameLower%>Quelle = new <%=entityname%>().BuildDAOFromDataSet(<%=entititynameLower%>QuellDs);
+            }
+        }
+        finally
+        {
+            // zu guter letzt die Connection wieder zumachen
+            if (mSqlConnection.State != ConnectionState.Closed)
+                mSqlConnection.Close();
+        }
+
+        // mit diesem DAO führen wir das Insert / Update durch
+        <%=entityname%>DAO update<%=entityname%>Dao = new <%=entityname%>().GetEmptyStructure(pContext);
+
+        // wir fragen die Tabelle des lokalen Systems mit den entsprechenden Fachlichen Schlüsseln ab, kommt nichts zurück ist der Datensatz neu,
+        // kommt was zurück, so wird der Inhalt geändert
+        <%=entityname%>DAO <%=entititynameLower%>Ziel = new <%=entityname%>DAO();
+        for (int idx = 0; idx < <%=entititynameLower%>Quelle.GetRecordCount(); idx++)
+		{
+			// Index setzen nicht vergesssen!
+			<%=entititynameLower%>Quelle.SetCurrentRow(idx);
+			<%=entititynameLower%>Ziel.AddPrm<%=kennungColumn%>_Array(<%=entititynameLower%>Quelle.Str<%=kennungColumn%>);
+		}
+		<%if(hasGeloescht){%>
+		// unbedingt gelöschte mit Berücksichtigen!
+		<%=entititynameLower%>Ziel.AddPrmGeloescht_Array(Globals.PARAMETER_DB_TRUE);
+		<%=entititynameLower%>Ziel.AddPrmGeloescht_Array(Globals.PARAMETER_DB_FALSE);
+		<%}%>
+		<%=entititynameLower%>Ziel = new <%=entityname%>().GetByParamAll(pContext, <%=entititynameLower%>Ziel);
+
+		ArrayList <%=entititynameLower%>ModifiedRecord = new ArrayList();
+		// verrarbeite die geänderten Sätze und merke welche neu hinzugefügt werden sollen!
+		for (int idxZiel = 0; idxZiel < <%=entititynameLower%>Ziel.GetRecordCount(); idxZiel++)
+		{
+			// nicht vergessen den Index zu setzen
+			<%=entititynameLower%>Ziel.SetCurrentRow(idxZiel);
+			
+			// Prüfe auf Sonderregeln für Stammdatentabelle
+            if (ZeileImAbgleichIgnorieren(<%=entititynameLower%>Ziel))
+                continue;
+
+			// wir merken uns die Kennung
+			<%=entititynameLower%>ModifiedRecord.Add(<%=entititynameLower%>Ziel.Str<%=kennungColumn%>);
+
+			for (int idxQuelle = 0; idxQuelle < <%=entititynameLower%>Quelle.GetRecordCount(); idxQuelle++)
+			{
+				// nicht vergessen den Index zu setzen
+				<%=entititynameLower%>Quelle.SetCurrentRow(idxQuelle);
+				
+				// Prüfe auf Sonderregeln für Stammdatentabelle
+				if (ZeileImAbgleichIgnorieren(<%=entititynameLower%>Quelle))
+					continue;
+
+				// richtigen Datensatz gefunden?
+				if (<%=entititynameLower%>Ziel.Str<%=kennungColumn%>.Equals(<%=entititynameLower%>Quelle.Str<%=kennungColumn%>))
+				{
+                        // verarbeiten
+                        bool datensatzHatAenderungen = false;
+						foreach (DataColumn colZiel in <%=entititynameLower%>Ziel.GetDataSet().Tables[<%=entityname%>DAO.TBL_DATA].Columns)
+                        {
+                            // Alle abgleichen ausser technische und explizit ignorierte Spalten
+                            if (!Utilities.IsTechnicalColumn(colZiel) && !SpalteImAbgleichIgnorieren("<%=info.ObjectName%>",colZiel))
+                            {
+                                // stimmen die Spaltennamen überein, so übertragen wir die Werte
+                                foreach (DataColumn colQuelle in <%=entititynameLower%>Quelle.GetDataSet().Tables[<%=entityname%>DAO.TBL_DATA].Columns)
+                                {
+                                    // es sei denn es handelt sich um den PK dann machen wir nichts, denn PK Änderungen dürfen 
+                                    // an bestehenden Daten nicht durchgeführt werden!
+                                    if (colQuelle.ColumnName.ToLower().Equals(colZiel.ColumnName.ToLower()) && !colZiel.ColumnName.ToLower().Equals(<%=entityname%>DAO.<%=entitynameUpper%>_ID.ToLower()))
+									{<%
+									// Fremdschlüsselabgleich, sofern Fremdschlüssel vorhanden sind
+									foreach(StammdatenuebernahmeInfo sInfo in stammdatenWithForeignKeys)
+									{
+										// wir suchen uns den passenden Datensatz in der Fremdschlüsselliste
+										if(!info.ObjectName.Equals(sInfo.ObjectName))
+											continue;
+										// Foreign Keys										
+										ArrayList foreignKeys = sInfo.ForeignKeys;
+										
+										// zuerst die Foreign Keys durchgehen und dafür den Abgleich generieren
+										string entityNameFkTable;
+										string entityNameFkTableUpper;
+										string entityNameFkTableLower;
+										foreach(StammdatenuebernahmeInfo sInfoForeignKey in foreignKeys)
+										{
+											entityNameFkTable = GeneratorHelper.ConvertName(GeneratorHelper.BuildEntityName(sInfoForeignKey.ObjectName, "Table"));
+											entityNameFkTableUpper = entityNameFkTable.ToUpper();
+											entityNameFkTableLower = entityNameFkTable.ToLower();
+											
+											string aliasKennung = GetKennungColumnForTable(stammdatenWithForeignKeys, sInfoForeignKey.ObjectName);
+											string aliasKennungUpper = aliasKennung.ToUpper();
+									%>
+									// Fremdschlüssel werden abgeglichen, sofern sie vorhanden sind hier <%=entityNameFkTableUpper%>_ID
+                                    // eine Prüfung auf einen Abgleich erfolgt nur, wenn Änderungen festgestellt werden!
+                                    if (colZiel.ColumnName.ToLower().Equals(<%=entityNameFkTable%>DAO.<%=aliasKennungUpper%>.ToLower()) &&
+                                        <%=entititynameLower%>Ziel.GetRow(idxZiel)[colZiel].ToString().ToLower() != <%=entititynameLower%>Quelle.GetRow(idxQuelle)[colQuelle].ToString().ToLower())
+                                    {
+                                        // prüfe ob die <%=entityNameFkTable%> Kennung in der Tabelle <%=entityNameFkTable%> vorhanden ist
+                                        string <%=entityNameFkTableLower%>KennungQuelle = <%=entititynameLower%>Quelle.GetRow(idxQuelle)[colQuelle].ToString();
+                                        if(!string.IsNullOrEmpty(<%=entityNameFkTableLower%>KennungQuelle))
+                                        {
+                                            <%=entityNameFkTable%>DAO <%=entityNameFkTableLower%> = new <%=entityNameFkTable%>DAO();
+											<%=entityNameFkTableLower%>.Prm<%=aliasKennung%> = <%=entityNameFkTableLower%>KennungQuelle;
+											<%=entityNameFkTableLower%> = new <%=entityNameFkTable%>().GetByParam(pContext, <%=entityNameFkTableLower%>);
+											
+                                            if (!<%=entityNameFkTableLower%>.HasRecord())
+                                            {
+                                                // wenn auf der DB nichts vorhanden ist, prüfe ob etwas per abgleich reingertrudelt ist
+                                                var pruefKennung = from row in pAbgleich<%=entityNameFkTable%>DAO.GetTable(<%=entityNameFkTable%>DAO.TBL_DATA).AsEnumerable()
+                                                              where row[<%=entityNameFkTable%>DAO.<%=aliasKennungUpper%>].ToString().Equals(<%=entityNameFkTableLower%>KennungQuelle)
+                                                              select row;
+
+                                                // nichts da? Fehler!
+                                                if (!pruefKennung.Any())
+                                                {
+                                                    mMailText.AppendFormat("Änderung bei <%=entityname%> Kennung: {0} Fremdschlüssel <%=entityNameFkTable%>-Kennung alt {1} neu: {2} kann nicht übernommen werden, da kein Datensatz zum neuen Fremdschlüssel ermittelt werden konnte!",
+                                                    <%=entititynameLower%>Ziel.Str<%=kennungColumn%>, <%=entititynameLower%>Ziel.GetRow(idxZiel)[colZiel], <%=entititynameLower%>Quelle.GetRow(idxQuelle)[colQuelle]);
+                                                    mMailText.AppendLine();
+
+                                                    // und weiter gehts...
+                                                    continue;
+                                                }
+                                            }
+                                        }
+                                    }
+									<%
+
+										}
+									}
+									%>
+										if (<%=entititynameLower%>Ziel.GetRow(idxZiel)[colZiel].ToString().ToLower() != <%=entititynameLower%>Quelle.GetRow(idxQuelle)[colQuelle].ToString().ToLower())
+                                        {
+                                            // wir versenden in der Mail keine technischen Änderungen
+                                            if (!colZiel.ColumnName.ToLower().Equals(<%=entityname%>DAO.INSDATE.ToLower()) &&
+                                                !colZiel.ColumnName.ToLower().Equals(<%=entityname%>DAO.INSUSER.ToLower()) &&
+                                                !colZiel.ColumnName.ToLower().Equals(<%=entityname%>DAO.UPDDATE.ToLower()) &&
+                                                !colZiel.ColumnName.ToLower().Equals(<%=entityname%>DAO.UPDUSER.ToLower()))
+                                            {
+                                                mMailText.AppendFormat("Übernommene Änderung bei <%=entityname%>-Id: {0} (<%=kennungColumn%>: {1}) Spalte '{2}' alt: {3} neu: {4}",
+                                                    <%=entititynameLower%>Ziel.Str<%=entityname%>_Id, <%=entititynameLower%>Ziel.Str<%=kennungColumn%>, colZiel, <%=entititynameLower%>Ziel.GetRow(idxZiel)[colZiel], <%=entititynameLower%>Quelle.GetRow(idxQuelle)[colQuelle]);
+                                                mMailText.AppendLine();
+                                            }
+                                            // Unterschiede übernehmen
+											datensatzHatAenderungen = true;
+                                            <%=entititynameLower%>Ziel.GetRow(idxZiel)[colZiel] = <%=entititynameLower%>Quelle.GetRow(idxQuelle)[colQuelle];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // Datensatz für späteres Update importieren
+                        if(datensatzHatAenderungen)
+						{
+							update<%=entityname%>Dao.ImportRow(<%=entititynameLower%>Ziel);
+						}
+                    }
+                }
+            }
+
+            // nun Verarbeiten wir neue Datensätze
+            for (int idxQuelle = 0; idxQuelle < <%=entititynameLower%>Quelle.GetRecordCount(); idxQuelle++)
+            {
+                // nicht vergessen den Index zu setzen
+                <%=entititynameLower%>Quelle.SetCurrentRow(idxQuelle);
+				
+				// Prüfe auf Sonderregeln für Stammdatentabelle
+				if (ZeileImAbgleichIgnorieren(<%=entititynameLower%>Quelle))
+					continue;
+
+                // modifizierter Satz? dann weiter in der Verabeitung
+                if (<%=entititynameLower%>ModifiedRecord.Contains(<%=entititynameLower%>Quelle.Str<%=kennungColumn%>))
+                    continue;
+
+                // neuer Satz? dann importieren
+                <%=entityname%>DAO <%=entititynameLower%>NeuerSatz = new <%=entityname%>().GetNewRecord(pContext);
+
+                // verarbeiten
+                foreach (DataColumn colNeuerSatz in <%=entititynameLower%>NeuerSatz.GetDataSet().Tables[<%=entityname%>DAO.TBL_DATA].Columns)
+                {
+                    // Alle abgleichen ausser PrimaryKeys, technische und explizit ignorierte Spalten
+                    if (!Utilities.IsTechnicalColumn(colNeuerSatz) && !SpalteImAbgleichIgnorieren("<%=info.ObjectName%>",colNeuerSatz) && !colNeuerSatz.ColumnName.ToLower().Equals("<%=entititynameLower%>_id"))
+                    {
+                        // stimmen die Spaltennamen überein, so übertragen wir die Werte Spalte für Spalte ein
+                        foreach (DataColumn colQuelle in <%=entititynameLower%>Quelle.GetDataSet().Tables[<%=entityname%>DAO.TBL_DATA].Columns)
+            {
+               if (colQuelle.ColumnName.ToLower().Equals(colNeuerSatz.ColumnName.ToLower()))
+			   {
+					<%
+					// Fremdschlüsselabgleich, sofern Fremdschlüssel vorhanden sind
+					foreach(StammdatenuebernahmeInfo sInfo in stammdatenWithForeignKeys)
+					{
+						// wir suchen uns den passenden Datensatz in der Fremdschlüsselliste
+						if(!info.ObjectName.Equals(sInfo.ObjectName))
+							continue;
+						
+						// Foreign Keys										
+						ArrayList foreignKeys = sInfo.ForeignKeys;
+						
+						// zuerst die Foreign Keys durchgehen und dafür den Abgleich generieren
+						string entityNameFkTable;
+						string entityNameFkTableUpper;
+						string entityNameFkTableLower;
+						foreach(StammdatenuebernahmeInfo sInfoForeignKey in foreignKeys)
+						{
+							entityNameFkTable = GeneratorHelper.ConvertName(GeneratorHelper.BuildEntityName(sInfoForeignKey.ObjectName, "Table"));
+							entityNameFkTableUpper = entityNameFkTable.ToUpper();
+							entityNameFkTableLower = entityNameFkTable.ToLower();
+							
+							string aliasKennung = GetKennungColumnForTable(stammdatenWithForeignKeys, sInfoForeignKey.ObjectName);
+							string aliasKennungUpper = aliasKennung.ToUpper();
+						%>
+							// Fremdschlüssel werden abgeglichen, sofern sie vorhanden sind hier <%=entityNameFkTableUpper%>_ID
+							// eine Prüfung auf einen Abgleich erfolgt nur, wenn Änderungen festgestellt werden!
+							if (colNeuerSatz.ColumnName.ToLower().Equals(<%=entityNameFkTable%>DAO.<%=aliasKennungUpper%>.ToLower()) &&
+								<%=entititynameLower%>Ziel.GetRow(0)[colNeuerSatz].ToString().ToLower() != <%=entititynameLower%>Quelle.GetRow(idxQuelle)[colQuelle].ToString().ToLower())
+							{
+								// prüfe ob die <%=entityNameFkTable%> Kennung in der Tabelle <%=entityNameFkTable%> vorhanden ist
+								string <%=entityNameFkTableLower%>KennungQuelle = <%=entititynameLower%>Quelle.GetRow(idxQuelle)[colQuelle].ToString();
+								if(!string.IsNullOrEmpty(<%=entityNameFkTableLower%>KennungQuelle))
+								{
+									<%=entityNameFkTable%>DAO <%=entityNameFkTableLower%> = new <%=entityNameFkTable%>DAO();
+									<%=entityNameFkTableLower%>.Prm<%=aliasKennung%> = <%=entityNameFkTableLower%>KennungQuelle;
+									<%=entityNameFkTableLower%> = new <%=entityNameFkTable%>().GetByParam(pContext, <%=entityNameFkTableLower%>);
+									
+									if (!<%=entityNameFkTableLower%>.HasRecord())
+									{
+										// wenn auf der DB nichts vorhanden ist, prüfe ob etwas per abgleich reingertrudelt ist
+										var pruefKennung = from row in pAbgleich<%=entityNameFkTable%>DAO.GetTable(<%=entityNameFkTable%>DAO.TBL_DATA).AsEnumerable()
+													  where row[<%=entityNameFkTable%>DAO.<%=aliasKennungUpper%>].ToString().Equals(<%=entityNameFkTableLower%>KennungQuelle)
+													  select row;
+
+										// nichts da? Fehler!
+										if (!pruefKennung.Any())
+										{
+											mMailText.AppendFormat("Änderung bei <%=entityname%> Kennung: {0} Fremdschlüssel <%=entityNameFkTable%>-Kennung alt {1} neu: {2} kann nicht übernommen werden, da kein Datensatz zum neuen Fremdschlüssel ermittelt werden konnte!",
+											<%=entititynameLower%>Ziel.Str<%=kennungColumn%>, <%=entititynameLower%>Ziel.GetRow(0)[colNeuerSatz], <%=entititynameLower%>Quelle.GetRow(idxQuelle)[colQuelle]);
+											mMailText.AppendLine();
+
+											// und weiter gehts...
+											continue;
+										}
+									}
+								}
+							}
+						<%}
+					} %>
+								
+					<%=entititynameLower%>NeuerSatz.GetRow(0)[colNeuerSatz] = <%=entititynameLower%>Quelle.GetRow(idxQuelle)[colQuelle];
+			    }
+								
+               }
+             }
+           }
+				<% // Prüfen ob die UIDF Spalten überhaupt auf der Datenbank vorhanden ist
+				   // gehe die Liste der UIDF Spalten durch und setze als Parameter sofern vorhanden
+				   string pruefColumns = string.Empty;
+				   ArrayList pruefColumnList = new ArrayList();
+				   foreach(string column in columnsForUniqueIndices)
+				   {
+						string colNameUpper = column.ToUpper();
+						// Spalte vorhanden? dann mitnehmen
+						if(CheckForColumn(cols, colNameUpper))
+						{
+							pruefColumns += column + ", ";
+							pruefColumnList.Add(column);
+						}
+				   }
+				
+					// Wenn Prüfspalten vorhanden sind, Abfrage starten
+					if(pruefColumnList.Count > 0)
+					{
+					if(!string.IsNullOrEmpty(pruefColumns))
+					{
+						pruefColumns = pruefColumns.TrimEnd();
+						pruefColumns = pruefColumns.Substring(0,pruefColumns.Length -1);
+					}
+					%>
+				// Prüfe ob der neue gegen die UIDF Einschränkung verstößt (in diesem Fall: <%=pruefColumns%>)
+				<%=entityname%>DAO testDao = new <%=entityname%>DAO();
+				<%
+					foreach(string pruefColumn in pruefColumnList)
+					{
+						string pruefColumnLower = GeneratorHelper.ConvertName(pruefColumn);
+				%>testDao.Prm<%=pruefColumnLower%> = <%=entititynameLower%>NeuerSatz.Str<%=pruefColumnLower%>;
+				<%
+					}
+					%>
+				testDao = new <%=entityname%>().GetByParam(pContext, testDao);
+				if(testDao.HasRecord())
+				{
+					mMailText.AppendFormat("Der Datensatz <%=entityname%>-Id: {0} UIDF-Spalten: '{1}' Kennungsspalte: <%=kennungColumn%> Wert: {2} ist schon im Zielsystem vorhanden und wird nicht importiert!",
+					<%=entititynameLower%>Quelle.Str<%=entityname%>_Id,"<%=pruefColumns%>", <%=entititynameLower%>Quelle.Str<%=kennungColumn%>);
+					mMailText.AppendLine();
+				}
+				else
+				{
+					// wir vermerken den Zuwachs in dem Mailtext
+					mMailText.AppendFormat("Neuer Datensatz <%=entityname%>-Id: {0} Kennungsspalte: <%=kennungColumn%> Wert: {1}",
+						  <%=entititynameLower%>Quelle.Str<%=entityname%>_Id, <%=entititynameLower%>Quelle.Str<%=kennungColumn%>);
+					mMailText.AppendLine();
+
+					// den Datensatz für späteres Update importieren
+					update<%=entityname%>Dao.ImportRow(<%=entititynameLower%>NeuerSatz);
+				}
+				<%
+				}
+				else
+				{%>
+				// wir vermerken den Zuwachs in dem Mailtext
+				mMailText.AppendFormat("Neuer Datensatz <%=entityname%>-Id: {0} Kennungsspalte: <%=kennungColumn%> Wert: {1}", 
+					<%=entititynameLower%>Quelle.Str<%=entityname%>_Id, <%=entititynameLower%>Quelle.Str<%=kennungColumn%>);
+				mMailText.AppendLine();
+
+				// den Datensatz für späteres Update importieren
+				update<%=entityname%>Dao.ImportRow(<%=entititynameLower%>NeuerSatz);
+				<%}%>
+			}
+
+            // wenn keine Änderungen vorhanden sind, so vermerken wir dies auch
+            if (!update<%=entityname%>Dao.HasRecord())
+                mMailText.AppendLine("Keine Änderungen.");
+
+            // wir geben unser DAO zurück
+			update<%=entityname%>Dao = (<%=entityname%>DAO)GetOrderedReturnValue(pContext, update<%=entityname%>Dao);
+            return update<%=entityname%>Dao;
+        }
+
+<%
+			}
+		}
+	
+	%>
+	#endregion Abgleichmethoden
+	
+	#region private Hilfesmethoden
+
+    /// <summary>
+    /// stellt einen ClientContext mit voller Berechtigung zur Verfügung
+    /// </summary>
+    /// <param name="pMandant"></param>
+    /// <param name="pBuchungskreis"></param>
+    /// <returns></returns>
+    private static ClientContext GetClientContext(string pMandant, string pBuchungskreis)
+    {
+        ClientContext synContext = SchnittstellenUtilities.GetInstance().GetSynClientContext(ConfigValues.Instance.SynthUser_Zesa_BenutzerName, pMandant, pBuchungskreis);
+        synContext.BenutzerId = ConfigValues.Instance.SynthUser_Zesa_BenutzerId;
+        synContext.Domaene = ConfigValues.Instance.SynthUser_Zesa_Domain;
+        synContext.Passwort = ConfigValues.Instance.SynthUser_Zesa_Pw;
+        // Sichtbarkeitsgruppen ergänzen
+        synContext = SchnittstellenUtilities.GetInstance().AddSichtbarkeitsgruppen(synContext);
+        // Context zurückgeben
+        return synContext;
+    }
+
+    /// <summary>
+    /// Mails werden nur auf INTEG und PROD gesendet
+    /// </summary>
+    /// <param name="pSubject"></param>
+    private void SendMail(string pSubject)
+	{
+        string mailEmpfaenger = "nur Logeintrag erstellt";
+        if (!mUmgebung.Equals(Globals.ENTW))
+		{
+            // wir machen kenntlcih ob Fehler aufgetreten sind
+            if(mIstWaehrendAbgleichFehlerAufgetreten)
+            {
+                mMailText.Replace("$FEHLERVALUE$", "mit Fehlern");
+            }
+            else
+            {
+                mMailText.Replace("$FEHLERVALUE$", "ohne Fehler");
+            }
+            mailEmpfaenger = ConfigValues.Instance.PostfachZesaDeployment();
+
+            new Email(mailEmpfaenger, pSubject, mMailText.ToString()).Send();
+		}
+
+        // das Log schreiben wir immer Weg
+        mLog.Info("Der Datenabgleich wurde durchgeführt, es wurde folgende Mail versendet: " + Environment.NewLine +
+            "Empfänger: " + mailEmpfaenger + Environment.NewLine +
+            "Betreff: " + pSubject + Environment.NewLine +
+            "Inhalt: " + mMailText + Environment.NewLine);
+
+        // mail Text wieder zurücksetzen
+        mMailText = new StringBuilder();
+    }
+
+    /// <summary>
+    /// loggt asuführlich einen Fehler als Warning und gibt die Wartezeit je nach Fehlerzahl zurück
+    /// </summary>
+    /// <param name="pFehleranzahl"></param>
+    private int LogErrorAndGetDelay(int pFehleranzahl)
+    {
+        // Rückgabewert bestimmen
+        int retValue;
+        switch (pFehleranzahl)
+        {
+            case 1:
+                //wir warten zwischen 1 und 20 sek.
+                retValue = new Random().Next(1000, 20000);
+                break;
+            case 2:
+                //wir warten zwischen 10 und 40 sek.
+                retValue = new Random().Next(10000, 40000);
+                break;
+            case 3:
+                //wir warten zwischen 30 und 50 sek.
+                retValue = new Random().Next(30000, 50000);
+                break;
+            default:
+                retValue = 0;
+                break;
+        }
+        // Ausführlichen fehler loggen (als Warning!)
+        mLog.Warn("Fehlerstatistik Datenabgleich LOV-Lesefehler:" +
+                            Environment.NewLine + "Fehleranzahl: " + pFehleranzahl
+                            + " Wartezeit für nächsten Versuch: " + (retValue / 1000) + " sec.");
+        // Wartezeit zurückgeben
+        return retValue;
+    }
+	
+	#endregion private Hilfesmethoden
+		
+	#region individuelle Anpassungen
+		
+<%
+		// geschützten Bereich aus altem Source übernehmen
+		output.preserve("Individuelle_Anpassungen");
+%>
+
+	#endregion individuelle Anpassungen
+	
+	}
+}
+<%
+			output.save(filename, false);
+			output.clear();	
+			
+			// Logging
+			/*output.clear();
+			output.writeln("Generierung Datenübernahme erfolgreich beendet...");
+			output.writeln("");
+			output.writeln("Ausgabeverzeichnis = " + input["TargetPath"]);
+			output.writeln("");
+			output.writeln("==> Ende <==");
+			output.writeln("");
+			string logname = input["TargetPath"].ToString();
+			if (!logname.EndsWith("\\") ) logname += "\\";
+			logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+			output.append(logname);
+			output.clear();	
+			*/
+			MyMeta.SaveUserMetaData();
+			output.writeln("Generierung beendet...");
+			
+		}
+		
+		// Prüfen, ob Tabelle die übergebene Spalte enthält
+		private bool CheckForColumn(IColumns pCols, string pColumnToUpper)
+		{
+			foreach(IColumn col in pCols)
+			{
+				if(col.Name.ToUpper() == pColumnToUpper)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+		
+		// gibt alle Verwendeten Usings zurück
+		private ArrayList GetUsings()
+		{
+			ArrayList retValue = new ArrayList();
+			retValue.Add("System");
+			retValue.Add("System.Collections");
+			retValue.Add("System.Data");
+			retValue.Add("System.Data.SqlClient");
+			retValue.Add("System.Diagnostics");
+			retValue.Add("System.Linq");
+			retValue.Add("System.Text");
+			retValue.Add("System.Threading");
+			retValue.Add("EHA.ZESA.Communication.RemotingServiceInterface.Allgemein");
+			retValue.Add("EHA.ZESA.Communication.RemotingServiceInterface.Allgemein.ClientContext");
+			retValue.Add("EHA.ZESA.Communication.RemotingServiceInterface.DAO.Basis.Konfiguration");
+			retValue.Add("EHA.ZESA.Communication.RemotingServiceInterface.DAO.Basis.Buchungskreis");
+			retValue.Add("EHA.ZESA.Communication.RemotingServiceInterface.DAO.Basis.Mandant");
+			retValue.Add("EHA.ZESA.Server.BusinessFacade.Allgemein");
+			retValue.Add("EHA.ZESA.Server.BusinessFacade.Basis");
+			return retValue;
+		}
+		
+		// Ermittelt die AliasKennung für eine Tabelle
+		private string GetKennungColumnForTable(ArrayList pStammdatenuebernahmeInfoList, string pTableName)
+		{
+			foreach(StammdatenuebernahmeInfo sInfo in pStammdatenuebernahmeInfoList)
+			{
+				string objectNamePkTable = GeneratorHelper.ConvertName(sInfo.ObjectName);
+				if(objectNamePkTable.ToLower().Equals(pTableName.ToLower()))
+					return GeneratorHelper.ConvertName(sInfo.AliasKennungColumn);
+			}
+			
+			// nichts gefunden? nichts zurückgeben
+			return string.Empty;
+		}
+}
+
+	
+%>
+##|BODY_END

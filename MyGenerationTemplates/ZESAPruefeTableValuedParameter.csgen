@@ -1,0 +1,561 @@
+﻿##|TYPE Template
+##|UNIQUEID 587112AA-CCB8-4912-A9B6-F037C0F6084A
+##|TITLE ZESAPruefeTableValuedParameter
+##|NAMESPACE 
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE None
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll, mscorlib.dll %>
+<%#NAMESPACE System, System.Text, System.Collections, System.Collections.Generic, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+		input["ExistingTableValuedParameterForTables"] = ui.ExistingTableValuedParameterForTables;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using System.Collections.Generic;
+using EHA.ZESA.Util.GeneratorUI;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	private const string MANDANT       = "MANDANT";
+	private const string BUCHUNGSKREIS = "BUCHUNGSKREIS";
+	private const string KENNUNG       = "KENNUNG";
+	private const string FUNKTION	   = "FUNKTION";
+	private const string VERSION_NUM   = "VERSION_NUM";
+
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+		if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		ArrayList data = input["Data"] as ArrayList;
+		
+		// Liste von existierenden TVPs und schon generierten Objekten
+		if(input["ExistingTableValuedParameterForTables"] == null)
+		{
+			MyMeta.SaveUserMetaData();
+			output.writeln("Generierung beendet...");
+			return;
+		}
+		ArrayList existingTvp = input["ExistingTableValuedParameterForTables"] as ArrayList;
+		ArrayList generatedTables = new ArrayList();
+		
+		// Liste der schon generierten Objekte
+		ArrayList generatedUsings = new ArrayList();
+		
+		// Klassennamen bilden
+		string classname   = "PruefeTableValuedParameter";
+		string fullClassname = "EHA.ZESA.Server.Allgemein." + classname;
+			
+		// Dateinamen bilden
+		string filepath = input["TargetPath"].ToString();
+		if (!filepath.EndsWith("\\") ) filepath += "\\";
+		filepath += "Server\\ZESAServer\\Allgemein\\";
+		
+		// Verzeichnis bei Bedarf anlegen
+		if(!Directory.Exists(filepath))
+		{
+			Directory.CreateDirectory(filepath);
+		}
+		string filename  = filepath + classname + ".cs";
+		
+		// File ausschecken
+		TfsHelper.Instance.CheckOut(filename);
+		
+		// Markierung für geschützten Bereich im Source definieren
+		output.setPreserveSource(filename, "/***", "***/");%>using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
+using System.Diagnostics;
+using System.Linq;
+using System.Text;
+using EHA.ZESA.Communication.RemotingServiceInterface.Allgemein;
+using EHA.ZESA.Communication.RemotingServiceInterface.Allgemein.ClientContext;
+using EHA.ZESA.Components.DbWriter;
+using EHA.ZESA.Components.ErrorHandling;
+using EHA.ZESA.Components.Log4NetWrapper;
+<%
+// usings der zu generierenden Tabellen übernehmen
+foreach(string tableName in existingTvp)
+{
+	string entitynameUpper = GeneratorHelper.BuildEntityName(tableName, "Table");
+	string entityname = GeneratorHelper.ConvertName(entitynameUpper);
+	string namespc = GeneratorHelper.FindNamespace(tableName);
+		
+	string serverUsing = "EHA.ZESA.Server.DAO."+namespc;
+	string interfaceUsing = "EHA.ZESA.Communication.RemotingServiceInterface.DAO."+namespc+"."+entityname;
+	
+	if(!generatedUsings.Contains(serverUsing))
+{%>
+using <%=serverUsing%>;<%generatedUsings.Add(serverUsing);}
+	if(!generatedUsings.Contains(interfaceUsing))
+	{%>
+using <%=interfaceUsing%>;<%generatedUsings.Add(interfaceUsing);}
+}
+%>
+// usings für setzen des Wartungsmodus
+using EHA.ZESA.Server.BusinessFacade.Basis;
+
+namespace EHA.ZESA.Server.Allgemein
+{
+    /// <summary>
+    /// Die Klasse übernimmt die Prüfung der in ZESA genutzten TableValuedParameter
+    /// für das Update per Prozedur. Diese Klasse wird mit Hilfe des BusinessLogic Generators generiert.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Historie</b></para>
+    /// <div class="tablediv">
+    /// 	<table class="dtTABLE" cellspacing="0">
+    ///		<tr>
+    ///			<th width="20%">Autor</th>
+    ///			<th width="20%">Datum</th>
+    ///			<th width="60%">Bemerkungen</th>
+    ///		</tr>
+    ///		<tr>
+    ///			<td width="20%">MyGeneration</td>
+    ///			<td width="20%"><%=DateTime.Now.ToShortDateString()%></td>
+    ///			<td width="60%">Erstellt</td>
+    ///		</tr>
+    /// 	</table>
+    /// </div>
+    /// </remarks>
+    public class PruefeTableValuedParameter
+    {
+        #region Member-Variablen
+
+        /// <summary>
+        /// Instanz des Loggers für serverseitiges Debugging 
+        /// </summary>
+        private static readonly Logger mLog = new Logger(typeof(PruefeTableValuedParameter));
+
+        // Die einzige Instanz unserer Klasse.
+        // Die Variable ist "volatile" deklariert, um sicherzustellen
+        // das die Zuweisung zu der Instanzvariablen abgeschlossen ist,
+        // bevor auf sie zugegriffen werden kann.
+        private static volatile PruefeTableValuedParameter mInstance;
+
+        // Dieses Objekt wird zum Sperren des Threads verwendet.
+        // Dadurch, dass dieses Objekt anstelle der Instanz
+        // an "lock()" übergeben wird, werden Deadlocks vermieden.
+        private static readonly object mSyncRoot = new Object();
+
+        // MailText und SqlConnection
+        private StringBuilder mMailText = new StringBuilder();
+
+        // Context und Umgebung
+        private string mUmgebung = string.Empty;
+        private string mBatchServerUrl = string.Empty;
+
+        // Fehler aufgetreten?
+        private bool mIstWaehrendPruefungFehlerAufgetreten;
+		private bool mPruefungenErfolgreichDruchlaufen;
+
+        // die Tabelle die alle TableValuedParameter und deren Member enthält
+        DataTable mStructuredTypeMembersNachTypeNameOrdinalPosition;
+
+        // unser ClientContext
+        private ClientContext mContext;
+
+        #endregion Member-Variablen
+
+        #region Konstruktoren
+
+        /// <summary>
+        /// privater Konstruktor, da Singleton
+        /// </summary>
+        private PruefeTableValuedParameter()
+        {
+            Initialisierung();
+        }
+
+        #endregion Konstruktoren
+
+        #region Initialisierung
+
+        /// <summary>
+        /// Initialisierung
+        /// </summary>
+        private void Initialisierung()
+        {
+            // den Temporären Context initialisieren
+            mContext = GetClientContext();
+
+            // Umgebung setzen
+            mUmgebung = SchnittstellenUtilities.GetInstance().CurrentEnvironment;
+
+            // Batchserver identifizieren
+            mBatchServerUrl = ConfigValues.Instance.BatchServerUrl;
+
+            // Logger Initialisieren
+            mLog.Init(true);
+
+            // wir bereiten schon mal vor
+            Vorbereitung();
+        }
+
+        #endregion Initialisierung
+
+        #region Property-Methoden
+
+        /// <summary>
+        /// gibt die einzige Instanz dieser Klasse zurück
+        /// </summary>
+        public static PruefeTableValuedParameter Instance
+        {
+            get
+            {
+                // DoubleLock 
+                if (mInstance == null)
+                    lock (mSyncRoot) { if (mInstance == null) mInstance = new PruefeTableValuedParameter(); }
+                return mInstance;
+            }
+        }
+
+        #endregion Property-Methoden
+
+        #region Öffentliche Methoden
+
+        /// <summary>
+        /// Prüft ob ein Prüfung durchgeführt werden muss und führt diesen dann ggf. durch
+        /// </summary>
+        public void Pruefe()
+        {
+            // wir locken die Vorbereitung, damit niemand uns in die Quere kommt.
+            lock (mSyncRoot)
+            {
+                // wurden die Prüfungen erfolgreich durhclaufen, gehen wir zurück...
+                if (mPruefungenErfolgreichDruchlaufen)
+                    return;
+				
+				// wir prüfen nur auf die TableValuedParameter wenn wir uns auf dem normalen ZESA-Applikationsserver befinden
+                // wenn wir auf dem Auslagerungsserver sind, gehts zurück...
+                if (mBatchServerUrl.ToLower().Contains(Environment.MachineName.ToLower()) || mBatchServerUrl.ToLower().Contains("localhost"))
+                {
+                    // es sei denn wir sind ENTW, denn dort läuft der Batchserver und AppServer 
+                    // auf einer Maschine...
+                    if (!mUmgebung.Equals(Globals.ENTW))
+                        return;
+                }
+
+                // führe die Prüfung aus
+                FuehrePruefungAus();
+            }
+        }
+
+        #endregion Öffentliche Methoden
+
+        #region Prüfung Initialisierung / Vorprüfung
+
+        /// <summary>
+        /// Dies Methode übernimmt ein paar Aufgaben, die im Vorwege der Prüfung durchzuführen sind
+        /// </summary>
+        private void Vorbereitung()
+        {
+            try
+            {
+                // hole alle TybleValuedParameters
+                using (SqlConnection con = DbWriter.GetInstance().GetConnection())
+                {
+                    mStructuredTypeMembersNachTypeNameOrdinalPosition = con.GetSchema("StructuredTypeMembers");
+                }
+            }
+            catch (Exception ex)
+            {
+                mMailText.AppendFormat("Umgebung: {0} Fehler:", mUmgebung);
+                mMailText.AppendLine(ex.ToString());
+                SendMail(mUmgebung + " Beim Vorbereiten der TableValuedParameterPruefung ist ein Fehler aufgetreten");
+		// Exception werfen verhindert den Serverstart
+                throw ClientExceptionHelper.Instance.TranslateException("Serverinitialisierung fehlgeschlagen", ErrorLevel.Fatal, ex);
+            }
+        }
+
+        /// <summary>
+        /// führt die Prüfungen für alle TableValuedParameter aus
+        /// </summary>
+        private void FuehrePruefungAus()
+        {
+            // Laufzeitmessung
+            Stopwatch myStopwatch = new Stopwatch();
+            myStopwatch.Start();
+
+            mMailText.AppendLine("## ACHTUNG - zur besseren Lesbarkeit evtl. die entfernten Zeilenumbrüche wiederherstellen ##");
+            mMailText.AppendLine();
+            
+            StringBuilder fehlermeldung = new StringBuilder();
+            fehlermeldung.AppendLine("Folgende TableValuedParameter Prüfungen sind fehlgeschlagen:");
+            fehlermeldung.AppendLine();
+
+            try
+            {
+                StringBuilder oFehlermeldung;
+                <%
+				// wir generieren Prüfungen für alle existierenden TVP's
+				foreach(string tableName in existingTvp)
+				{
+					
+					string entitynameUpper = GeneratorHelper.BuildEntityName(tableName, "Table");
+					string entityname = GeneratorHelper.ConvertName(entitynameUpper);
+					string objectName = tableName;
+															
+					// schon generiert? bitte weitergehen...
+					if(generatedTables.Contains(objectName))
+						continue;
+					
+					%>
+				if (TesteSpaltenNamenUndReihenfolge(new <%=entityname%>().GetEmptyStructure(mContext).GetTable(<%=entityname%>DAO.TBL_DATA), "TT_<%=objectName%>", out oFehlermeldung))
+                {
+                    fehlermeldung.Append(oFehlermeldung);
+					fehlermeldung.AppendLine();
+                    fehlermeldung.AppendLine();
+                    mIstWaehrendPruefungFehlerAufgetreten = true;
+                }
+					<%
+	
+				}
+				%>
+            }
+            catch (Exception ex)
+            {
+                mIstWaehrendPruefungFehlerAufgetreten = true;
+                // Zeilenumbruch wenn schon Text vorhanden ist
+                if (mMailText.Length > 0)
+                    mMailText.AppendLine();
+
+                // und die Exception anhängen
+                mMailText.AppendLine("Fehler: " + Environment.NewLine + ex);
+            }
+
+           // wir vermerken noch, wie lange die Prüfung gedauert hat
+            myStopwatch.Stop();
+			mMailText.AppendLine(fehlermeldung.ToString());
+            mMailText.AppendLine();
+            mMailText.AppendFormat("Dauer der Prüfungen insgesamt: {0} sec.", myStopwatch.ElapsedMilliseconds / 1000);
+            mMailText.AppendLine();
+            mMailText.Append("Zur Sicherheit wurde ZESA in den WARTUNGSMODUS versetzt, dieser ist so lange aktiv bis der Fehler behoben ist!");
+            mMailText.AppendLine();
+            
+            // wenn Fehler bei der Prüfung aufgeterten sind, versenden wir diese per Email,
+            // aber nicht auf ENTW - da sind ständige Änderungen an der Tagesordnung
+            if (mIstWaehrendPruefungFehlerAufgetreten && !mUmgebung.Equals(Globals.ENTW)) 
+            {
+                // wir setzen den Wartungsmodus
+                SetWartungsmodus(true);
+                
+                // Dann senden wir eine Mail
+                SendMail(mUmgebung + " Beim Durchführen der TableValuedParameterPruefung ist ein Fehler aufgetreten");
+		
+			   // Exception werfen verhindert den Serverstart
+               throw ClientExceptionHelper.Instance.TranslateException(string.Format("Serverinitialisierung fehlgeschlagen: {0}", mMailText), ErrorLevel.Fatal);
+			}
+
+			// alle erfolgreich...
+            SetWartungsmodus(false);
+            mPruefungenErfolgreichDruchlaufen = true;
+        }
+
+        #endregion Prüfung Initialisierung / Vorprüfung / Hauptmethode Prüfung
+
+        #region private Hilfesmethoden
+
+        /// <summary>
+        /// Prüft, ob die Reihenfolge / Anzahl der Spalten im benutzerdefinierten Tabellentyp dem DAO-Objekt entspricht.
+        /// </summary>
+        /// <param name="pTabelle">DataTable aus dem DAO</param>
+        /// <param name="pTypName">benutzerdefinierter Tabellentyp</param>
+        /// <param name="oFehlermeldung"></param>
+        private bool TesteSpaltenNamenUndReihenfolge(DataTable pTabelle, string pTypName, out StringBuilder oFehlermeldung)
+        {
+            // zeigt an ob ein Fehler aufgeterten ist
+            bool errorOccured = false;
+            
+            // unsrere Fehlermeldung
+            StringBuilder fehlermeldung = new StringBuilder();
+            fehlermeldung.AppendFormat("TableValuedParameter {0} ", pTypName);
+            
+            // Eine Liste mit allen Spaltennamen des Tabellentyps, in korrekter Reihenfolge sortiert
+            // UPD_ Spalten werden ignoriert
+            List<string> sortierteSpaltenDesTabTyps = (from row in mStructuredTypeMembersNachTypeNameOrdinalPosition.AsEnumerable()
+                                                       where row["TYPE_NAME"].ToString().ToUpper().Equals(pTypName.ToUpper()) &&
+                                                       !row["MEMBER_NAME"].ToString().ToUpper().StartsWith("UPD_")
+                                                       orderby (int)row["ORDINAL_POSITION"]
+                                                       select row["MEMBER_NAME"].ToString().ToUpper()).ToList();
+
+            // Wennd der Tabellentyp nicht definiert ist, gehe zurück
+            if (!sortierteSpaltenDesTabTyps.Any())
+            {
+                fehlermeldung.AppendFormat("Der benutzerdefinierten Tabellentyp {0} konnte nicht gefunden werden.{1}", pTypName, Environment.NewLine);
+                
+                // Fehlermeldung erstellen und zurückgeben
+                oFehlermeldung = fehlermeldung;
+                return true;
+            }
+
+            // technische Spalten der Tabelle entfernen
+            Utilities.RemoveTechnicalColumns(pTabelle);
+
+            // wir prüfen auf korrekte Anzahl der Spalten
+            if (sortierteSpaltenDesTabTyps.Count != pTabelle.Columns.Count)
+            {
+                fehlermeldung.AppendFormat("Die Anzahl der Spalten im benutzerdefinierten Tabellentyp {0} entspricht nicht dem DAO-Objekt. Anzahl Spalten Tabellentyp: {1} DAO: {2}",
+                    pTypName, sortierteSpaltenDesTabTyps.Count, pTabelle.Columns.Count);
+
+				oFehlermeldung = fehlermeldung;
+                return true;
+            }
+
+            // wir prüfen auf übereinstimmende Reihenfolge der TableValuedParameter und der DAO Spalten
+            for (int i = 0; i < sortierteSpaltenDesTabTyps.Count; i++)
+            {
+                if (!sortierteSpaltenDesTabTyps[i].ToUpper().Equals(pTabelle.Columns[i].ColumnName.ToUpper()))
+                {
+                    errorOccured = true;
+                    fehlermeldung.AppendFormat("Die Reihenfolge der Spalten im benutzerdefinierten Tabellentyp {0} an der Stelle {1} Wert TabTyp: {2} entspricht nicht dem DAO-Objekt WertDao {3}.",
+                        pTypName, i, sortierteSpaltenDesTabTyps[i].ToUpper(), pTabelle.Columns[i].ColumnName.ToUpper());
+                }
+            }
+            
+            // wir füllen noch den Output Parameter und geben dann Erfolg oder auch nicht zurück
+            oFehlermeldung = errorOccured ? fehlermeldung : new StringBuilder();
+            return errorOccured;
+        }
+
+        /// <summary>
+        /// stellt einen ClientContext mit voller Berechtigung zur Verfügung
+        /// </summary>
+        /// <returns></returns>
+        private static ClientContext GetClientContext()
+        {
+            ClientContext synContext = SchnittstellenUtilities.GetInstance().GetSynClientContext(ConfigValues.Instance.SynthUser_Zesa_BenutzerName, KennungDefinitions.BA_MANDANT_EHA, KennungDefinitions.BA_BUCHUNGSKREIS_EHA);
+            synContext.BenutzerId = ConfigValues.Instance.SynthUser_Zesa_BenutzerId;
+            synContext.Domaene = ConfigValues.Instance.SynthUser_Zesa_Domain;
+            synContext.Passwort = ConfigValues.Instance.SynthUser_Zesa_Pw;
+            // Sichtbarkeitsgruppen ergänzen
+            synContext = SchnittstellenUtilities.GetInstance().AddSichtbarkeitsgruppen(synContext);
+            // Context zurückgeben
+            return synContext;
+        }
+
+        /// <summary>
+        /// Mails werden nur auf INTEG und PROD gesendet
+        /// </summary>
+        /// <param name="pSubject"></param>
+        private void SendMail(string pSubject)
+        {
+            string mailEmpfaenger = "nur Logeintrag erstellt";
+            if (!mUmgebung.Equals(Globals.ENTW))
+            {
+                // wir machen kenntlich ob Fehler aufgetreten sind
+                mailEmpfaenger = ConfigValues.Instance.PostfachZesaDeployment();
+                new Email(mailEmpfaenger, pSubject, mMailText.ToString()).Send();
+            }
+
+            // das Log schreiben wir immer Weg
+            mLog.Error("Die Prüfung der TableValuedParameter wurde durchgeführt, es wurde ggf. folgende Mail versendet: " + Environment.NewLine +
+                "Empfänger: " + mailEmpfaenger + Environment.NewLine +
+                "Betreff: " + pSubject + Environment.NewLine +
+                "Inhalt: " + mMailText + Environment.NewLine);
+
+            // mail Text wieder zurücksetzen
+            mMailText = new StringBuilder();
+        }
+
+		/// <summary>
+        /// ZESA in den Wartungsmodus versetzen
+        /// </summary>
+        /// <param name="pCheckState"></param>
+        private void SetWartungsmodus(bool pCheckState)
+        {
+            // wir setzen den zu aktualsierdnen Wert von Bool auf INT
+            int checkState = pCheckState ? Globals.DB_VALUE_TRUE : Globals.DB_VALUE_FALSE;
+
+            // einen Context organisisren
+            ClientContext tempClientContext = GetClientContext();
+
+            // wir löschen den Mandant und Buchungskreis um alle Datensätze im Update zu erwischen!
+            tempClientContext.Mandant = String.Empty;
+            tempClientContext.Buchungskreis = String.Empty;
+
+            // Wenn der Wartungsmodus gesetzt wird, erst DB aktualsieren und dann LOV neu einlesen!
+            KonfigurationDAO konfigurationDao = new KonfigurationDAO();
+            konfigurationDao.PrmKennung = KennungDefinitions.SY_KONFIGURATION_WARTUNGSMODUS;
+            konfigurationDao = new Konfiguration().GetByParam(tempClientContext, konfigurationDao);
+            // Wert ändern
+            for (int i = 0; i < konfigurationDao.GetRecordCount(); i++)
+            {
+                konfigurationDao.SetValue(i, KonfigurationDAO.WERT, checkState);
+            }
+            // Update durchführen   
+            new Konfiguration().Update(tempClientContext, konfigurationDao);
+
+            // Wertelisten neu einlesen
+            new LovNeuEinlesenManager().ReReadAllLists();
+        }
+
+
+        #endregion private Hilfesmethoden
+
+        #region individuelle Anpassungen
+<%
+		// geschützten bereich aus altem Source übernehmen
+		output.preserve("Individuelle_Anpassungen");
+%>
+        #endregion individuelle Anpassungen
+
+    }
+}
+
+
+<%
+
+			output.save(filename, false);
+			output.clear();	
+			
+			// Logging
+			/*output.clear();
+			output.writeln("Generierung TableValuedParameter Prüfung erfolgreich beendet...");
+			output.writeln("");
+			output.writeln("Ausgabeverzeichnis = " + input["TargetPath"]);
+			output.writeln("");
+			output.writeln("==> Ende <==");
+			output.writeln("");
+			string logname = input["TargetPath"].ToString();
+			if (!logname.EndsWith("\\") ) logname += "\\";
+			logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+			output.append(logname);
+			output.clear();	
+			*/
+			MyMeta.SaveUserMetaData();
+			output.writeln("Generierung beendet...");
+		}
+}
+ 
+%>
+##|BODY_END

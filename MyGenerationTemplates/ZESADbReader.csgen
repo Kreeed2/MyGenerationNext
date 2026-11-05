@@ -1,0 +1,397 @@
+﻿##|TYPE Template
+##|UNIQUEID 66862dc4-b4b5-4105-be04-523edf3efc19
+##|TITLE ZESADbReader
+##|NAMESPACE 
+##|SOURCE_TYPE Source
+##|OUTPUT_LANGUAGE None
+##|GUI_ENGINE .Net Script
+##|GUI_LANGUAGE C#
+##|GUI_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll, System.Windows.Forms.dll %>
+<%#NAMESPACE System, System.Text, System.Collections,System.Collections.Generic, System.Windows.Forms, Zeus, Zeus.UserInterface, Zeus.Templates.DotNetScript, EHA.ZESA.Util.GeneratorUI %>
+
+public class GeneratedGui : DotNetScriptGui
+{
+	public GeneratedGui(ZeusGuiContext context) : base(context) {}
+
+	public override void Setup()
+	{
+		BLGeneratorUI ui = new BLGeneratorUI(MyMeta);
+		ui.ShowDialog();
+		input["Data"] = ui.Data;
+		input["TargetPath"] = ui.TargetPath;
+	}
+	
+}
+##|GUI_END
+##|BODY_MODE Markup
+##|BODY_ENGINE .Net Script
+##|BODY_LANGUAGE C#
+##|BODY_TAG_START <%
+##|BODY_TAG_END %>
+##|BODY_BEGIN
+<%#REFERENCE ZESABLGeneratorUI.dll %><%
+using System.Text;
+using System.IO;
+using System.Collections.Generic;
+using EHA.ZESA.Util.GeneratorUI;
+
+public class GeneratedTemplate : DotNetScriptTemplate
+{
+	private const string MANDANT       = "MANDANT";
+	private const string BUCHUNGSKREIS = "BUCHUNGSKREIS";
+	private const string KENNUNG       = "KENNUNG";
+	private const string FUNKTION	   = "FUNKTION";
+
+	public GeneratedTemplate(ZeusContext context) : base(context) {}
+
+	public override void Render()
+	{
+	  if(input["Data"] == null)
+		{
+			output.writeln("Cancelled by user ... ");
+			return;
+		}
+		ArrayList data = input["Data"] as ArrayList;
+		Dictionary<string,string> dbReaderDatatypeColumns;
+		string filepath;
+	
+		// Dateiname bilden
+		filepath = input["TargetPath"].ToString();
+		if (!filepath.EndsWith("\\") ) filepath += "\\";
+		
+		// Verzeichnis bei Bedarf anlegen
+		if(!Directory.Exists(filepath))
+		{
+			Directory.CreateDirectory(filepath);
+		}
+		string filename  = filepath + "DbReader.config";
+		
+		// File ausschecken
+		TfsHelper.Instance.CheckOut(filename);
+
+		// Markierung für geschützten Bereich in Source festlegen
+		output.setPreserveSource(filename, "<!--####", "####-->");
+%><?xml version="1.0" encoding="utf-8" ?>
+<application>
+	<configuration>
+		<DataAccess>
+			<System>
+				<XMLTempPath Name="C:\XMLTempPath" PathIsRelative="false"></XMLTempPath>
+				<Connection Type="SQL" ServerName="HEW01EHA05\SQL2005" Database="ZESA_ENTW" DefaultUser="" Domain=""
+					DefaultPassword="" ConnectString="Persist Security Info=False;Initial Catalog=ZESA_ENTW;Data Source=HEW01EHA05\SQL2005;User ID=ZESA_TEST;Password=zesatest;Connection Lifetime=300"></Connection>
+				<CleanUp User="AOpierzynski" Host="10.202.132.207" Pwd="" TimeInSeconds="6000" CleanAllTime="23:00:00"></CleanUp>
+			</System>
+			<Application>
+				<ApplicationMaxRecords>1000</ApplicationMaxRecords>
+				<DataBlockSize>1000</DataBlockSize>
+				<DataPageSize>1000</DataPageSize>
+				<TurboModeFlag>true</TurboModeFlag>
+				<TurboModeMaxRecords>1000</TurboModeMaxRecords>
+			</Application>
+			<alternativeConfig IsActive="false" ConfigDirectory="Database"> </alternativeConfig>
+			<Queries>
+<%
+		// Geschützten Bereich aus altem Source übernehmen
+		output.preserve("Individuelle_Anpassungen");
+		foreach(GenInfo info in data)
+		{
+			IColumns cols;
+			string entityname;
+			string entitynameUpper;
+			
+			// übersteuernde Kriterien aufbauen
+			dbReaderDatatypeColumns = GeneratorHelper.GetDbReaderDatatypeColumns(info);
+			
+			// Differenzen zwischen ITable und IView eliminieren
+			if(info.ObjectType == "Table")
+			{
+				ITable table = MyMeta.DefaultDatabase.Tables[info.ObjectName];
+				cols = table.Columns;
+				entityname = GeneratorHelper.ConvertName(info.EntityName);
+				entitynameUpper = info.EntityName;
+			}
+			else
+			{
+				IView view = MyMeta.DefaultDatabase.Views[info.ObjectName];
+				cols = view.Columns;
+				entityname = GeneratorHelper.ConvertName(info.ObjectName);
+				entitynameUpper = info.ObjectName;
+			}
+%>
+				<!-- <%=info.ObjectName%> - Beginn der Definition -->
+				<%OutputQueryHeadString( info, entityname, cols);%>
+					<Attributelists>
+						<Attributelist ID="$ATTLIST"></Attributelist>
+					</Attributelists>
+					<Attributes> 
+<%
+						OutputAttributes(info.ObjectName, cols); 
+%>					</Attributes>
+					<Parameterlists>
+<%						OutputParameterLists( cols);
+%>					</Parameterlists>
+					<Parameters>
+<%
+						OutputParameters(info.ObjectName, cols, dbReaderDatatypeColumns); 
+%>					</Parameters>
+				</Query>
+				<!-- <%=info.ObjectName%> - Ende der Definition -->
+<%
+		}
+%>			</Queries>
+		</DataAccess>
+	</configuration>
+</application>
+<%
+		output.save(filename, false);
+		output.clear();
+		
+		// Logging
+		output.writeln("Generierung DbReader.config erfolgreich beendet...");
+		output.writeln("");
+		output.writeln("Ausgabeverzeichnis = " + filename);
+		output.writeln("");
+		string logname = input["TargetPath"].ToString();
+		if (!logname.EndsWith("\\") ) logname += "\\";
+		logname += "ZESA_Generierung_" + DateTime.Now.ToString("yyyyMMdd") + ".log";
+		output.append(logname);
+		MyMeta.SaveUserMetaData();
+		output.clear();
+	}
+
+	// Gibt alle Spalten der Tabelle als <Attribute> aus
+	// Beispiel:
+	// <Attribute ID="Mandant" ColName="BA_BENUTZER.MANDANT" DataType="NUM" AttribList="$ATTLIST"></Attribute>
+	private void OutputAttributes(string pObjectName, IColumns pColumns)
+	{
+		int oldTabLevel = output.tabLevel;
+		output.tabLevel = 6;
+		int maxLength = GeneratorHelper.MaxColLength(pColumns);
+		foreach(Column col in pColumns)
+		{
+			output.autoTab("<Attribute ID=\"");
+			output.write(GeneratorHelper.ConvertName(col.Name));
+			output.write("\"" + GeneratorHelper.FillUp(col.Name, maxLength));
+			output.write(" ColName=\"");
+			output.write(pObjectName + "." + col.Name);
+			output.write("\"" + GeneratorHelper.FillUp(col.Name, maxLength));
+			output.write(" DataType=");
+			OutputDataType(col);
+			output.writeln(" AttribList=\"$ATTLIST\"></Attribute>");
+		}
+		output.tabLevel = oldTabLevel;
+	}
+	
+	// Gibt die Liste von Parameterlists aus.
+	// Dieses sind auf jeden Fall $PARALIST1 und $PARALIST2.
+	// Gibt es Spalten für die Sichtbarkeitsgruppe bzw. ext. Datengruppe, so werden auch $PARA_SG1 und $PARA_SG2 ausgegeben.
+	private void OutputParameterLists( IColumns pColumns)
+	{
+		int oldTabLevel = output.tabLevel;
+		output.tabLevel = 6;
+		
+		// $PARALIST1 und $PARALIST2 ausgeben.
+		output.autoTabLn( "<Parameterlist ID=\"$PARALIST1\" Type=\"WHERE-CLAUSE\" Code=\"where \" InnerCode=\" and \"></Parameterlist>");
+		output.autoTabLn( "<Parameterlist ID=\"$PARALIST2\" Type=\"WHERE-CLAUSE\" Code=\"or \" InnerCode=\" and \"></Parameterlist>");
+		
+		// In Abhängigkeit vom Vorhandensein von Sichtbarkeitsgruppe_Id bzw. Ext_Datengruppe_Id, $PARA_SG1 bzw. $PARA_SG2 ausgeben.
+		// Anmerkung: Die Reihenfolge der IF-Statements ist relevant.
+		bool hasSichtbarkeitsColumn = HasSichtbarkeitsColumn( pColumns);
+		bool hasExtDatengruppeColumn = HasExtDatengruppeColumn( pColumns);
+		if (hasSichtbarkeitsColumn || hasExtDatengruppeColumn)
+		{
+			output.autoTabLn( "<Parameterlist ID=\"$PARA_SG\" Type=\"WHERE-CLAUSE\" Code=\"and \" InnerCode=\" or \"></Parameterlist>");
+		}
+
+		// Abschließend noch die $ORDERLIST ausgeben.
+		output.autoTabLn( "<Parameterlist ID=\"$ORDERLIST\" Type=\"BY-CLAUSE\" Code=\"order by \" InnerCode=\", \"></Parameterlist>");
+		output.tabLevel = oldTabLevel;
+	}
+
+	// Gibt alle Spalten der Tabelle als Parameter-Attribut aus
+	// Für numerische Parameter werden zwei Parameter für von-/bis-Wert erzeugt
+	// Beispiel:
+	// <Parameter ID="Mandant"     ColName="BA_BENUTZER.MANDANT" DataType="NUM" ParaList="$PARALIST1" Operator="="></Parameter>
+	// <Parameter ID="Von_Mandant" ColName="BA_BENUTZER.MANDANT" DataType="NUM" ParaList="$PARALIST1" Operator="&gt;="></Parameter>
+	// <Parameter ID="Bis_Mandant" ColName="BA_BENUTZER.MANDANT" DataType="NUM" ParaList="$PARALIST1" Operator="&lt;="></Parameter>
+	private void OutputParameters(string pObjectName, IColumns pColumns, Dictionary<string,string> pDbReaderDatatypeCols)
+	{
+		int oldTabLevel = output.tabLevel;
+		output.tabLevel = 6;
+		int maxLength = GeneratorHelper.MaxColLength(pColumns);
+		foreach(Column col in pColumns)
+		{
+			output.autoTab("<Parameter ID=\"");
+			output.write(GeneratorHelper.ConvertName(col.Name));
+			// +4 wg Von_ / Bis_
+			output.write("\"" + GeneratorHelper.FillUp(col.Name, maxLength + 4));
+			output.write(" ColName=\"");
+			output.write(pObjectName + "." + col.Name);
+			output.write("\"" + GeneratorHelper.FillUp(col.Name, maxLength));
+			output.write(" DataType=");
+			OutputDataType(col);
+//			if((col.LanguageType.ToLower() == "string"))
+//			{
+//				output.writeln(" ParaList=\"$PARALIST1\" Operator=\"like\"></Parameter>");
+//			}
+//			else
+//			{
+//				output.writeln(" ParaList=\"$PARALIST1\" Operator=\"=\"></Parameter>");
+//			}
+			output.writeln(" ParaList=\"" + GetParaList(col) + "\" Operator=\"" + GetOperator(col) + "\"></Parameter>");
+			if(GeneratorHelper.IsNumeric(col, pDbReaderDatatypeCols))
+			{
+				OutputNumericParameter(pObjectName, col, maxLength);
+			}
+		}
+		output.tabLevel = oldTabLevel;
+	}
+	
+	// Liefert die Art der Parameterliste: PARALIST1 im Normalfall sowie PARA_SG1 oder PARA_SG2 für Sichtbarkeits- und ext. Datengruppen-Spalten.
+	private string GetParaList( IColumn pCol)
+	{
+		if (IsSichtbarkeitsColumn( pCol) || IsExtDatengruppeColumn( pCol))
+			return "$PARA_SG";
+		return "$PARALIST1";
+	}
+	
+	// Gibt eine numerische Spalte als Parameter-Attribut aus (Von_ / Bis_ Parameter)
+	private void OutputNumericParameter(string pObjectName, IColumn pCol, int pMaxLength)
+	{
+			output.autoTab("<Parameter ID=\"Von_");
+			output.write(GeneratorHelper.ConvertName(pCol.Name));
+			output.write("\"" + GeneratorHelper.FillUp("Von_" + pCol.Name, pMaxLength + 4));
+			output.write(" ColName=\"");
+			output.write(pObjectName + "." + pCol.Name);
+			output.write("\"" + GeneratorHelper.FillUp(pCol.Name, pMaxLength));
+			output.write(" DataType=");
+			OutputDataType(pCol);
+			output.writeln(" ParaList=\"$PARALIST1\" Operator=\"&gt;=\"></Parameter>");
+			output.autoTab("<Parameter ID=\"Bis_");
+			output.write(GeneratorHelper.ConvertName(pCol.Name));
+			output.write("\"" + GeneratorHelper.FillUp("Bis_" + pCol.Name, pMaxLength + 4));
+			output.write(" ColName=\"");
+			output.write(pObjectName + "." + pCol.Name);
+			output.write("\"" + GeneratorHelper.FillUp(pCol.Name, pMaxLength));
+			output.write(" DataType=");
+			OutputDataType(pCol);
+			output.writeln(" ParaList=\"$PARALIST1\" Operator=\"&lt;=\"></Parameter>");
+	}
+
+	// Gibt den Datentyp einer Spalte aus
+	private void OutputDataType(IColumn pCol)
+	{
+			string temp = pCol.LanguageType.ToLower();
+			if(temp == "guid")          output.write("\"GUID\"");
+			else if(temp == "decimal")  output.write("\"CURL\" ");
+			else if(temp == "long")     output.write("\"NUM\" ");
+			else if(temp == "double")   output.write("\"NUM\" ");
+			else if(temp == "int")      output.write("\"NUM\" ");
+			else if(temp == "float")    output.write("\"SING\" ");
+			else if(temp == "short")    output.write("\"NUM\" ");
+			else if(temp == "byte")     output.write("\"NUM\" ");
+			else if(temp == "datetime") output.write("\"DAT\" ");
+			else if(temp == "bool")     output.write("\"BOOL\"");
+			else if(temp == "byte[]")   output.write("\"BIN\" ");
+			else                        output.write("\"TXT\" ");
+	}
+
+	// Gibt den Operator ( = oder like ) für eine Spalte zurück
+	private string GetOperator(IColumn pCol)
+	{
+		if(CheckForEqualColumn(pCol) == true)
+		{
+			return "=";
+		}
+
+		string temp = pCol.LanguageType.ToLower();
+		if(temp == "guid")          return "=";
+		else if(temp == "datetime") return "=";
+		else if(temp == "bool")     return "=";
+		else if(temp == "decimal")  return "=";
+		else if(temp == "long")     return "=";
+		else if(temp == "double")   return "=";
+		else if(temp == "int")      return "=";
+		else if(temp == "float")    return "=";
+		else if(temp == "short")    return "=";
+		else if(temp == "byte")     return "=";
+		else                        return "like";
+	}
+	
+	// Prüft auf Spalten, die auf jeden Fall mit "=" abgefragt werden sollen.
+	// Das sind: Mandant, Buchungskreis, sowie alle, die 'Kennung' im Namen beinhalten.
+	// Aktuell wird hier auch auf 'Funktion' getestet. Der Grund liegt darin, dass
+	// der Berechtigungsmanager derzeit noch nicht die Kennungen aus BA_FUNKTION auswertet,
+	// sondern eben die Funktion. Ist das geaendert, kann der Eintrag hier heraus.
+	private bool CheckForEqualColumn(IColumn pCol)
+	{
+		if(pCol.Name.ToUpper().Equals(MANDANT) ||
+		   pCol.Name.ToUpper().Equals(BUCHUNGSKREIS) ||
+		   pCol.Name.ToUpper().Equals(FUNKTION) ||
+		   (pCol.Name.ToUpper().IndexOf(KENNUNG) >= 0))
+		{
+			return true;
+		}
+		return false;
+	}
+	
+	private bool IsSichtbarkeitsColumn( IColumn pCol)
+	{
+		// Anmerkung: Dieser Test würde auch greifen für den Primärschlüssel einer potenziellen Tabelle BA_SICHTBARKEITSGRUPPE.
+		if (pCol.Name.ToUpper() == "SICHTBARKEITSGRUPPE_ID")
+			return true;
+		return false;
+	}
+	
+	private bool HasSichtbarkeitsColumn( IColumns pColumns)
+	{
+		foreach(Column col in pColumns)
+		{
+			if (IsSichtbarkeitsColumn( col))
+				return true;
+		}
+		return false;
+	}
+	
+	private bool IsExtDatengruppeColumn( IColumn pCol)
+	{
+		// Anmerkung: Dieser Test würde auch greifen für den Primärschlüssel einer potenziellen Tabelle BA_EXT_DATENGRUPPE.
+		if (pCol.Name.ToUpper() == "EXT_DATENGRUPPE_ID")
+			return true;
+		return false;
+	}
+	
+	private bool HasExtDatengruppeColumn( IColumns pColumns)
+	{
+		foreach(Column col in pColumns)
+		{
+			if (IsExtDatengruppeColumn( col))
+				return true;
+		}
+		return false;
+	}
+	
+	private string CreateSichtbarkeitsQueryString(IColumns pColumns)
+	{
+		bool hasSichtbarkeitsColumn = HasSichtbarkeitsColumn( pColumns);
+		bool hasExtDatengruppeColumn = HasExtDatengruppeColumn( pColumns);
+		string ret = string.Empty;
+		
+		if (hasSichtbarkeitsColumn || hasExtDatengruppeColumn)
+			ret = " $PARA_SG";
+
+		return ret;
+	}
+	
+	// Erzeugt die initiale "<Query ... />" Zeile.
+	private void OutputQueryHeadString( GenInfo pInfo, string pEntityname, IColumns pColumns)
+	{
+		string outString = "<Query ID=\"" + pEntityname + "_List\" Name=\"" + pEntityname + "_List\" Statement=\"Select $ATTLIST from " + pInfo.ObjectName + " $PARALIST1 $PARALIST2";
+		outString += CreateSichtbarkeitsQueryString( pColumns);
+		outString += " $ORDERLIST\" DifferentApplicationMaxRecordsUsed=\"\" DifferentDataPageSizeUsed=\"\" Type=\"SQL\">";
+		output.autoTab( outString);
+	}
+}
+%>
+##|BODY_END
