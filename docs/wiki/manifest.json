@@ -1,0 +1,790 @@
+{
+  "index": "README.md",
+  "pages": [
+    {
+      "path": "mymeta/data-binding-and-lazy-loading.md",
+      "section": "mymeta",
+      "title": "Data binding and lazy loading",
+      "summary": "How MyMeta base classes (MetaObject, Single, Collection) bind DataTable columns to entity properties and lazily load children through the ClassFactory.",
+      "keywords": [
+        "Single",
+        "Collection",
+        "MetaObject",
+        "DataRow",
+        "DataColumn",
+        "BindToColumns",
+        "PopulateArray",
+        "LoadData",
+        "lazy"
+      ]
+    },
+    {
+      "path": "mymeta/discard-vs-keep.md",
+      "section": "mymeta",
+      "title": "Discard vs keep for an MSSQL-only .NET 10 rewrite",
+      "summary": "Recommendations of which MyMeta behaviours to drop, keep or fix when rebuilding the metadata layer for SQL Server only with C# output.",
+      "keywords": [
+        "rewrite",
+        "discard",
+        "keep",
+        "MSSQL",
+        ".NET 10",
+        "SqlClient",
+        "sp_describe_first_result_set",
+        "type mapping"
+      ]
+    },
+    {
+      "path": "mymeta/language-and-dbtarget-mappings.md",
+      "section": "mymeta",
+      "title": "Language and DbTarget mappings",
+      "summary": "How Languages.xml and DbTargets.xml map SQL Server type names to C#/other languages and ADO.NET types, how dbRoot selects them, and which modern SQL types are missing.",
+      "keywords": [
+        "Languages.xml",
+        "DbTargets.xml",
+        "LanguageType",
+        "DbTargetType",
+        "SqlDbType",
+        "C#",
+        "type mapping",
+        "DomainOverride"
+      ]
+    },
+    {
+      "path": "mymeta/object-model.md",
+      "section": "mymeta",
+      "title": "MyMeta object model",
+      "summary": "Every MyMeta entity (Database, Table, View, Column, ForeignKey, Index, Procedure, Parameter, ResultColumn, Domain, ProviderType) with its navigation and key properties.",
+      "keywords": [
+        "Database",
+        "Table",
+        "View",
+        "Column",
+        "ForeignKey",
+        "Index",
+        "Procedure",
+        "Parameter",
+        "ResultColumn",
+        "Domain",
+        "ProviderType",
+        "properties"
+      ]
+    },
+    {
+      "path": "mymeta/other-providers-skim.md",
+      "section": "mymeta",
+      "title": "Other built-in providers (skim)",
+      "summary": "Table of the non-SQL-Server providers in mymeta, their driver ids, client libraries and sample connection strings, for reference only.",
+      "keywords": [
+        "providers",
+        "Oracle",
+        "PostgreSQL",
+        "MySql",
+        "Firebird",
+        "SQLite",
+        "Access",
+        "DB2",
+        "VistaDB",
+        "Npgsql"
+      ]
+    },
+    {
+      "path": "mymeta/overview.md",
+      "section": "mymeta",
+      "title": "MyMeta overview",
+      "summary": "What MyMeta is, how the root object `dbRoot` wires a connection, a driver ClassFactory and lazily loaded metadata together, and the end-to-end lifecycle a template sees.",
+      "keywords": [
+        "MyMeta",
+        "dbRoot",
+        "ClassFactory",
+        "Connect",
+        "lazy loading",
+        "overview",
+        "architecture"
+      ]
+    },
+    {
+      "path": "mymeta/plugin-system.md",
+      "section": "mymeta",
+      "title": "Provider and plugin system",
+      "summary": "How MyMeta registers built-in drivers, loads external IMyMetaPlugin assemblies, and selects a ClassFactory at Connect time.",
+      "keywords": [
+        "plugin",
+        "IMyMetaPlugin",
+        "IMyMetaPluginExt",
+        "MyMetaPluginContext",
+        "InternalDriver",
+        "PluginDriver",
+        "ClassFactory",
+        "dbDriver"
+      ]
+    },
+    {
+      "path": "mymeta/sql-server-provider.md",
+      "section": "mymeta",
+      "title": "SQL Server provider (MyMeta.Sql)",
+      "summary": "Exact OLE DB schema rowsets and T-SQL queries the legacy SQL Server provider uses to populate each MyMeta entity, plus its type-name logic and known gaps.",
+      "keywords": [
+        "SQL Server",
+        "OleDbSchemaGuid",
+        "sp_columns",
+        "fn_listextendedproperty",
+        "syscomments",
+        "INFORMATION_SCHEMA",
+        "IDENT_SEED",
+        "identity",
+        "extended properties"
+      ]
+    },
+    {
+      "path": "mymeta/user-metadata.md",
+      "section": "mymeta",
+      "title": "User metadata (aliases and properties XML)",
+      "summary": "Format and behaviour of the user-metadata XML document that stores aliases and custom key/value properties for MyMeta entities.",
+      "keywords": [
+        "user metadata",
+        "UserData",
+        "alias",
+        "Properties",
+        "PropertyCollection",
+        "PropertyCollectionAll",
+        "XPath",
+        "global properties",
+        "MergeUserMetaDataFiles"
+      ]
+    },
+    {
+      "path": "stock-templates/additional-files-and-docs.md",
+      "section": "stock-templates",
+      "title": "Additional Files and Documentation Folders",
+      "summary": "What lives in additionalfiles/ (sample databases, type test scripts) and documentation/ (Sandcastle/HelpNDoc sources) and their relevance to the port.",
+      "keywords": [
+        "additionalfiles",
+        "documentation",
+        "sandcastle",
+        "helpndoc",
+        "sample database",
+        "northwind"
+      ]
+    },
+    {
+      "path": "stock-templates/doodads-architecture.md",
+      "section": "stock-templates",
+      "title": "dOOdads Runtime Architecture",
+      "summary": "How the dOOdads C# runtime (BusinessEntity, DynamicQuery, WhereParameter, AggregateParameter, TransactionMgr, SqlClientEntity) works and how generated entity classes derive from it.",
+      "keywords": [
+        "dOOdads",
+        "BusinessEntity",
+        "DynamicQuery",
+        "WhereParameter",
+        "AggregateParameter",
+        "TransactionMgr",
+        "SqlClientEntity",
+        "SqlClientDynamicQuery",
+        "generated entity",
+        "tests"
+      ]
+    },
+    {
+      "path": "stock-templates/overview.md",
+      "section": "stock-templates",
+      "title": "Stock Templates and dOOdads - Overview",
+      "summary": "Orientation to the legacy MyGeneration repository layout, the Zeus template file format, intrinsic objects, and the three-step dOOdads generation workflow.",
+      "keywords": [
+        "overview",
+        "zeus",
+        "template-format",
+        "vbgen",
+        "csgen",
+        "intrinsic-objects",
+        "ZeusOutput",
+        "workflow",
+        "folder-map"
+      ]
+    },
+    {
+      "path": "stock-templates/scriban-port-notes.md",
+      "section": "stock-templates",
+      "title": "Scriban Port Notes",
+      "summary": "How each stock C#/SQL Server template maps to a Scriban template for a .NET 10 SQL Server-only tool, what to keep, discard and fix.",
+      "keywords": [
+        "scriban",
+        "port",
+        ".NET 10",
+        "SQL Server",
+        "model",
+        "templates",
+        "discard",
+        "bugs"
+      ]
+    },
+    {
+      "path": "stock-templates/settings-files.md",
+      "section": "stock-templates",
+      "title": "Settings Files",
+      "summary": "Contents and roles of the XML settings in _MyGeneration13_2025/Settings, including the SQL-to-C# and SQL-to-SqlClient type maps and their gaps.",
+      "keywords": [
+        "settings",
+        "DefaultSettings.xml",
+        "Languages.xml",
+        "DbTargets.xml",
+        "UserMetaData.xml",
+        "ZeusConfig.xml",
+        "type mapping",
+        "datetime2"
+      ]
+    },
+    {
+      "path": "stock-templates/template-catalog.md",
+      "section": "stock-templates",
+      "title": "Stock Template Catalog",
+      "summary": "Per-template reference (purpose, GUI inputs, MyMeta objects used, output files) for the C#, SQL Server, HTML, Other, Samples and out-of-scope stock templates.",
+      "keywords": [
+        "templates",
+        "catalog",
+        "BusinessEntity",
+        "ConcreteClass",
+        "View",
+        "StoredProc",
+        "SQL_StoredProcs",
+        "DataInserts",
+        "HTML_DatabaseReport",
+        "MyMeta"
+      ]
+    },
+    {
+      "path": "stock-templates/tutorials.md",
+      "section": "stock-templates",
+      "title": "Tutorial Templates",
+      "summary": "The eight Chapter1/Chapter2 tutorial templates (C#, VB.NET, VBScript, JScript) and the template-authoring concepts they demonstrate.",
+      "keywords": [
+        "tutorials",
+        "Chapter1",
+        "Chapter2",
+        "zeus",
+        "DotNetScriptGui",
+        "DotNetScriptTemplate",
+        "output",
+        "WinForms"
+      ]
+    },
+    {
+      "path": "stock-templates/zeus-api.md",
+      "section": "stock-templates",
+      "title": "Zeus Template API (ui, input, output)",
+      "summary": "Reference for the objects a Zeus template sees - GUI builder, input dictionary and ZeusOutput text buffer - as used by stock templates.",
+      "keywords": [
+        "zeus",
+        "ZeusOutput",
+        "ZeusInput",
+        "GuiController",
+        "preserve",
+        "save",
+        "autoTab",
+        "input keys"
+      ]
+    },
+    {
+      "path": "ui-and-tooling/connection-and-settings.md",
+      "section": "ui-and-tooling",
+      "title": "Connection and settings UI",
+      "summary": "DefaultSettingsControl edits database, metadata mapping, template, output, timeout, and execution preferences; MetaDataBrowser connects through MyMeta and exposes schema browsing.",
+      "keywords": [
+        "database",
+        "connection",
+        "settings",
+        "MyMeta",
+        "SQL Server",
+        "mappings"
+      ]
+    },
+    {
+      "path": "ui-and-tooling/ide-plugins-installer.md",
+      "section": "ui-and-tooling",
+      "title": "IDE plugins, converter, installer, and help",
+      "summary": "Legacy distribution includes Visual Studio and SharpDevelop integrations, a CodeSmith conversion utility, NSIS packaging, third-party binaries, and compiled/help-authoring assets.",
+      "keywords": [
+        "IDE",
+        "Visual Studio",
+        "SharpDevelop",
+        "installer",
+        "CodeSmith",
+        "help"
+      ]
+    },
+    {
+      "path": "ui-and-tooling/main-application.md",
+      "section": "ui-and-tooling",
+      "title": "Main WinForms application",
+      "summary": "MyGenerationMDI is the launched dockable host that creates documents, restores panes, dispatches plugin commands, and coordinates shutdown.",
+      "keywords": [
+        "main application",
+        "MDI",
+        "docking",
+        "startup",
+        "documents",
+        "windows"
+      ]
+    },
+    {
+      "path": "ui-and-tooling/overview.md",
+      "section": "ui-and-tooling",
+      "title": "UI and tooling overview",
+      "summary": "The legacy product is a WinForms MDI host around Zeus templates, MyMeta metadata, Scintilla editing, XML settings, and loadable UI plugins.",
+      "keywords": [
+        "overview",
+        "architecture",
+        "WinForms",
+        "MDI",
+        "Zeus",
+        "MyMeta"
+      ]
+    },
+    {
+      "path": "ui-and-tooling/plugins.md",
+      "section": "ui-and-tooling",
+      "title": "UI and provider plugins",
+      "summary": "PluginManager discovers selected UI extension contracts from adjacent assemblies, while MyMeta providers and standalone test tools follow separate extension paths.",
+      "keywords": [
+        "plugins",
+        "extension points",
+        "SqlTool",
+        "MyMeta",
+        "CodeSmith",
+        "SampleUI"
+      ]
+    },
+    {
+      "path": "ui-and-tooling/scintilla-editor.md",
+      "section": "ui-and-tooling",
+      "title": "Scintilla editor and syntax highlighting",
+      "summary": "The legacy source editor wraps native Scintilla through ScintillaNET, applies XML lexer/style configuration, and adds Zeus-specific language behavior.",
+      "keywords": [
+        "Scintilla",
+        "ScintillaNET",
+        "editor",
+        "syntax highlighting",
+        "autocomplete"
+      ]
+    },
+    {
+      "path": "ui-and-tooling/settings-persistence.md",
+      "section": "ui-and-tooling",
+      "title": "Settings and layout persistence",
+      "summary": "The shared DefaultSettings singleton stores preferences and connection profiles as XML, while MyGenerationMDI persists dock layout separately.",
+      "keywords": [
+        "settings",
+        "XML",
+        "persistence",
+        "recent files",
+        "connection profiles",
+        "layout"
+      ]
+    },
+    {
+      "path": "ui-and-tooling/template-browser-and-editor.md",
+      "section": "ui-and-tooling",
+      "title": "Template browser and editor",
+      "summary": "TemplateBrowser discovers and operates on Zeus templates, while TemplateEditor edits template metadata and source and executes templates through the Zeus runtime.",
+      "keywords": [
+        "templates",
+        "browser",
+        "editor",
+        "Zeus",
+        "execution",
+        "projects"
+      ]
+    },
+    {
+      "path": "ui-and-tooling/tui-mapping.md",
+      "section": "ui-and-tooling",
+      "title": "Mapping legacy UI to a Terminal.Gui application",
+      "summary": "A focused TUI should preserve template generation, SQL Server metadata, settings, diagnostics, and generated-file workflows while discarding Windows-specific shell and integration surfaces.",
+      "keywords": [
+        "TUI",
+        "Terminal.Gui",
+        "rewrite",
+        "screen mapping",
+        "SQL Server",
+        "migration"
+      ]
+    },
+    {
+      "path": "ui-and-tooling/utilities.md",
+      "section": "ui-and-tooling",
+      "title": "Shared UI utilities",
+      "summary": "MyGenUtility centralizes settings, extension loading, document/content factories, execution coordination, and reusable WinForms diagnostic/output panes.",
+      "keywords": [
+        "utilities",
+        "MyGenUtility",
+        "console",
+        "errors",
+        "generated files",
+        "execution"
+      ]
+    },
+    {
+      "path": "zesa-generator/config-migration.md",
+      "section": "zesa-generator",
+      "title": "Legacy config migration tools",
+      "summary": "Explains the three source-backed utilities for metadata XML, DbReader/DbWriter config, and project-file migration.",
+      "keywords": [
+        "migration",
+        "XML",
+        "DbReader",
+        "DbWriter",
+        "csproj",
+        "legacy"
+      ]
+    },
+    {
+      "path": "zesa-generator/configuration-templates.md",
+      "section": "zesa-generator",
+      "title": "Configuration and utility templates",
+      "summary": "Describes the generated database configuration XML, reader/writer configuration, list-of-values files, and supporting project definitions.",
+      "keywords": [
+        "configuration",
+        "DbReader",
+        "DbWriter",
+        "XML",
+        "LOV",
+        "project files"
+      ]
+    },
+    {
+      "path": "zesa-generator/data-access-templates.md",
+      "section": "zesa-generator",
+      "title": "Data-access template group",
+      "summary": "Documents generated DAO, verified DAO, manager, and shared parameter/column-definition classes.",
+      "keywords": [
+        "DAO",
+        "server",
+        "verified",
+        "manager",
+        "C-sharp",
+        "MyMeta"
+      ]
+    },
+    {
+      "path": "zesa-generator/dotnet10-port-notes.md",
+      "section": "zesa-generator",
+      "title": ".NET 10 port notes",
+      "summary": "Maps evidenced legacy generator responsibilities to a SQL Server-only C# console/TUI, Scriban templates, and JSON configuration.",
+      "keywords": [
+        ".NET 10",
+        "port",
+        "Scriban",
+        "JSON",
+        "SQL Server",
+        "architecture"
+      ]
+    },
+    {
+      "path": "zesa-generator/generator-pipeline.md",
+      "section": "zesa-generator",
+      "title": "Generator pipeline",
+      "summary": "Follows the legacy generation path from MyGeneration UI selection through XML persistence and template output.",
+      "keywords": [
+        "pipeline",
+        "MyGeneration",
+        "GenInfo",
+        "MyMeta",
+        "generated files"
+      ]
+    },
+    {
+      "path": "zesa-generator/generator-ui.md",
+      "section": "zesa-generator",
+      "title": "Generator UI",
+      "summary": "Documents the Windows Forms object-selection workflow and the metadata records handed from the UI to templates.",
+      "keywords": [
+        "BLGeneratorUI",
+        "WinForms",
+        "database metadata",
+        "GenInfo",
+        "selection"
+      ]
+    },
+    {
+      "path": "zesa-generator/metadata-xml-schema.md",
+      "section": "zesa-generator",
+      "title": "Metadata XML schema",
+      "summary": "Describes the typed DataSet schema and the persisted BLGeneratorUIMeta.xml and BLGeneratorUISettings.xml roles.",
+      "keywords": [
+        "MetaData.xsd",
+        "BLGeneratorUIMeta.xml",
+        "XML",
+        "DataSet",
+        "settings"
+      ]
+    },
+    {
+      "path": "zesa-generator/overview.md",
+      "section": "zesa-generator",
+      "title": "ZESA generator overview",
+      "summary": "Describes the legacy MyGeneration template suite, its UI, metadata model, and generated application layers.",
+      "keywords": [
+        "ZESA",
+        "MyGeneration",
+        "C-sharp",
+        "templates",
+        "architecture"
+      ]
+    },
+    {
+      "path": "zesa-generator/remoting-client-templates.md",
+      "section": "zesa-generator",
+      "title": "Remoting, client, and project templates",
+      "summary": "Covers generated remoting contracts and services, client list controls, unit tests, and legacy project manifests.",
+      "keywords": [
+        "remoting",
+        "client",
+        "list control",
+        "unit tests",
+        "csproj"
+      ]
+    },
+    {
+      "path": "zesa-generator/stammdatenuebernahme.md",
+      "section": "zesa-generator",
+      "title": "Stammdatenuebernahme generation",
+      "summary": "Describes the generated release-change master-data transfer class and the UI logic that builds its dependency order.",
+      "keywords": [
+        "Stammdatenuebernahme",
+        "master data",
+        "release migration",
+        "foreign keys"
+      ]
+    },
+    {
+      "path": "zesa-generator/table-valued-parameters.md",
+      "section": "zesa-generator",
+      "title": "Table-valued parameters",
+      "summary": "Explains how the UI discovers SQL Server structured table types and how the TVP validation template compares them with table columns.",
+      "keywords": [
+        "SQL Server",
+        "TVP",
+        "structured type",
+        "table-valued parameter",
+        "validation"
+      ]
+    },
+    {
+      "path": "zesa-generator/tfs-and-autoupdate.md",
+      "section": "zesa-generator",
+      "title": "TFS and generator auto-update",
+      "summary": "Documents legacy source-control side effects, versioned generator DLL deployment, and the standalone updater behavior.",
+      "keywords": [
+        "TFS",
+        "Team Foundation Version Control",
+        "auto-update",
+        "DLL",
+        "project files"
+      ]
+    },
+    {
+      "path": "zeus/context-and-intrinsic-objects.md",
+      "section": "zeus",
+      "title": "Zeus context, input, log, intrinsic objects, config and preprocessors",
+      "summary": "Describes ZeusContext and the objects visible to templates (input, output, ui, MyMeta, log), ZeusConfig, intrinsic object registration and the default context preprocessor.",
+      "keywords": [
+        "ZeusContext",
+        "ZeusInput",
+        "ZeusIntrinsicObject",
+        "ZeusConfig",
+        "ZeusSimpleLog",
+        "preprocessor",
+        "MyMeta",
+        "DefaultContextProcessor",
+        "__dbDriver"
+      ]
+    },
+    {
+      "path": "zeus/engine-interface.md",
+      "section": "zeus",
+      "title": "EngineInterface (PluginInterfaces) contracts",
+      "summary": "Lists the interfaces in the EngineInterface project that separate the Zeus engine from the IDE and plugins, and which are worth keeping.",
+      "keywords": [
+        "EngineInterface",
+        "PluginInterfaces",
+        "IZeusController",
+        "IZeusContext",
+        "IMyGenerationMDI",
+        "plugin",
+        "IZeusTemplate",
+        "IEditorManager"
+      ]
+    },
+    {
+      "path": "zeus/execution-flow.md",
+      "section": "zeus",
+      "title": "End-to-end template execution flow",
+      "summary": "Step-by-step trace, with method names, of loading, parsing, GUI, body execution, group handling, collect and saved-input runs.",
+      "keywords": [
+        "ZeusExecutioner",
+        "ZeusTemplate.Execute",
+        "ExecuteCodeSegment",
+        "PopulateContextObjects",
+        "Collect",
+        "ExecuteAndCollect",
+        "group",
+        "skipGui"
+      ]
+    },
+    {
+      "path": "zeus/gui-controls.md",
+      "section": "zeus",
+      "title": "GUI input controls (ui.* / GuiController)",
+      "summary": "Catalogs the `ui` object API and Gui* control classes templates use to collect input, including MyMeta binders, events and the WinForms renderer.",
+      "keywords": [
+        "GuiController",
+        "ui",
+        "AddTextBox",
+        "AddComboBox",
+        "AddListBox",
+        "AddFilePicker",
+        "DynamicForm",
+        "FormBuilder",
+        "GuiDataBinder",
+        "AttachEvent"
+      ]
+    },
+    {
+      "path": "zeus/output-and-file-saving.md",
+      "section": "zeus",
+      "title": "Output object and saving files (ZeusOutput)",
+      "summary": "Documents the `output` intrinsic (write/writeln/tabs/save/append/preserve regions), backup/overwrite semantics and encodings.",
+      "keywords": [
+        "ZeusOutput",
+        "output.write",
+        "save",
+        "saveEnc",
+        "backup",
+        "preserve",
+        "autoTab",
+        "SavedFiles"
+      ]
+    },
+    {
+      "path": "zeus/saved-input-and-projects.md",
+      "section": "zeus",
+      "title": "Saved input (.zinp), projects (.zproj/.zprj) and serializers",
+      "summary": "Explains how collected GUI input is serialized, saved templates instances, the project/module XML model and how projects execute.",
+      "keywords": [
+        "ZeusSavedInput",
+        "SavedTemplateInput",
+        "ZeusProject",
+        "ZeusModule",
+        "InputItem",
+        "MasterSerializer",
+        "zinp",
+        "zproj",
+        "zprj"
+      ]
+    },
+    {
+      "path": "zeus/scriban-dotnet10-mapping.md",
+      "section": "zeus",
+      "title": "Zeus to Scriban / .NET 10 mapping and discard list",
+      "summary": "Maps each Zeus concept to a Scriban/.NET 10 console equivalent and lists legacy parts to drop in the rewrite.",
+      "keywords": [
+        "Scriban",
+        ".NET 10",
+        "rewrite",
+        "mapping",
+        "discard",
+        "TUI",
+        "JSON config",
+        "SQL Server"
+      ]
+    },
+    {
+      "path": "zeus/script-engines.md",
+      "section": "zeus",
+      "title": "Script engines and languages (.Net Script, Microsoft Script)",
+      "summary": "Documents the pluggable scripting engines (CodeDom C#/VB.NET compilation and COM MSScriptControl VBScript/JScript), their custom tags and how templates are compiled/run.",
+      "keywords": [
+        "DotNetScriptEngine",
+        "MicrosoftScriptEngine",
+        "CodeDom",
+        "CSharpCodeProvider",
+        "MSScriptControl",
+        "COM",
+        "VBScript",
+        "JScript",
+        "ZeusFactory",
+        "IZeusScriptingEngine"
+      ]
+    },
+    {
+      "path": "zeus/template-file-format.md",
+      "section": "zeus",
+      "title": "Zeus template file format (##| directives, GUI/BODY sections)",
+      "summary": "Describes the on-disk text format of Zeus templates (.zeus/.csgen/.vbgen/.jgen), its ##| directives, section blocks, template groups, and the legacy format.",
+      "keywords": [
+        "template",
+        "zeus",
+        "csgen",
+        "vbgen",
+        "jgen",
+        "directive",
+        "GUI_BEGIN",
+        "BODY_BEGIN",
+        "group",
+        "ZeusWriter",
+        "legacy"
+      ]
+    },
+    {
+      "path": "zeus/template-parsing.md",
+      "section": "zeus",
+      "title": "Template parsing (ZeusTemplateParser, ZeusCodeParser, tags)",
+      "summary": "Explains how a template file is loaded into ZeusTemplate and how body/GUI code is converted from <% %>, <%= %>, <%# %> markup into executable script.",
+      "keywords": [
+        "ZeusTemplateParser",
+        "ZeusCodeParser",
+        "ZeusCodeSegment",
+        "markup",
+        "pure",
+        "tags",
+        "output.write",
+        "custom tag",
+        "ParseMarkup"
+      ]
+    },
+    {
+      "path": "zeus/unit-tests.md",
+      "section": "zeus",
+      "title": "UnitTests project (stubs and sample template)",
+      "summary": "States what the legacy UnitTests project actually contains (empty test shells and one C# template) so agents do not expect test coverage.",
+      "keywords": [
+        "UnitTests",
+        "BaseTemplateTest",
+        "CSharpTests",
+        "VbNetTests",
+        "JScriptTests",
+        "VbScriptTests",
+        "CSharpTestTemplate001"
+      ]
+    },
+    {
+      "path": "zeus/zeuscmd.md",
+      "section": "zeus",
+      "title": "ZeusCmd command-line tool",
+      "summary": "Documents ZeusCmd.exe switches, modes (template, project, MyMeta), argument validation and logging behavior.",
+      "keywords": [
+        "ZeusCmd",
+        "CmdInput",
+        "command line",
+        "switches",
+        "ProcessMode",
+        "-t",
+        "-p",
+        "-i",
+        "-c",
+        "internaluse",
+        "Log"
+      ]
+    }
+  ]
+}
