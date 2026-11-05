@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="MyGenerationNext.Cli/MyGenerationNext.Cli.csproj" />
+  <Project Path="MyGenerationNext.Core/MyGenerationNext.Core.csproj" />
+  <Project Path="MyGenerationNext.Tests/MyGenerationNext.Tests.csproj" />
+</Solution>
