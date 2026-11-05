@@ -98,6 +98,7 @@ async Task Generate()
     var meta = Path.Combine(settings.TemplateDirectory, "BLGeneratorMetaData");
     GeneratorEnvironment.Reset();
     GeneratorEnvironment.Database = db;
+    GeneratorEnvironment.AutoSelectStammdatenDependencies = false;
     GeneratorEnvironment.TargetPath = Path.GetFullPath(settings.SourceDirectory);
     GeneratorEnvironment.SelectedObjects = settings.SelectedTables
         .Select(t => t[(t.IndexOf('.') + 1)..]).ToHashSet(StringComparer.OrdinalIgnoreCase);

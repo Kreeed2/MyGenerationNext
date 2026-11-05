@@ -24,6 +24,11 @@ namespace EHA.ZESA.Util.GeneratorUI
         /// </summary>
         public static ISet<string>? SelectedObjects { get; set; }
         public static bool IgnoreStammdatenuebernahme { get; set; }
+        /// <summary>
+        /// Legacy behaviour: rows flagged for Stammdatenuebernahme (and the tables they reference by FK) are
+        /// ticked automatically. When false, only the explicitly selected objects are generated.
+        /// </summary>
+        public static bool AutoSelectStammdatenDependencies { get; set; } = true;
         public static DatabaseInfo? Database { get; set; }
         /// <summary>Registered master-data tables (from ba_funktion).</summary>
         public static List<string> StammdatenTables { get; set; } = [];
@@ -37,6 +42,7 @@ namespace EHA.ZESA.Util.GeneratorUI
             TargetPath = "";
             SelectedObjects = null;
             IgnoreStammdatenuebernahme = false;
+            AutoSelectStammdatenDependencies = true;
             Database = null;
             StammdatenTables = [];
             TableValuedTypeNames = [];

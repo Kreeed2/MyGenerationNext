@@ -80,6 +80,7 @@ namespace EHA.ZESA.Util.GeneratorUI
         }
 
         private static bool IgnoreStammdaten => GeneratorEnvironment.IgnoreStammdatenuebernahme;
+        private static bool AutoSelect => !IgnoreStammdaten && GeneratorEnvironment.AutoSelectStammdatenDependencies;
 
         private static MetaDataRow NewRow(string name, string ns, string type) => new()
         {
@@ -166,7 +167,7 @@ namespace EHA.ZESA.Util.GeneratorUI
                 if (aRow.Generate && !IgnoreStammdaten)
                 {
                     if (string.IsNullOrEmpty(aRow.AliasKennungColumn)) aRow.AliasKennungColumn = "KENNUNG";
-                    if (aRow.Stammdatenuebernahme)
+                    if (aRow.Stammdatenuebernahme && AutoSelect)
                     {
                         foreach (StammdatenuebernahmeInfo sInfo in GetForeignKeys(aRow))
                         {
@@ -296,6 +297,7 @@ namespace EHA.ZESA.Util.GeneratorUI
 
                 var fkMetaRow = mRows.FirstOrDefault(r => r.ObjectName.Equals(fk.PrimaryTable.Name));
                 if (fkMetaRow == null) continue;
+                if (!GeneratorEnvironment.AutoSelectStammdatenDependencies && !fkMetaRow.Generate) continue;
 
                 if (foreignKeys.Cast<StammdatenuebernahmeInfo>().Any(s => s.ObjectName.Equals(fk.PrimaryTable.Name))) continue;
                 if (mKeineDatenuebernahmeGenerieren.Contains(fk.PrimaryTable.Name)) continue;
@@ -338,7 +340,7 @@ namespace EHA.ZESA.Util.GeneratorUI
                         aRow.Stammdatenuebernahme = false;
                         continue;
                     }
-                    if (!IgnoreStammdaten && !aRow.Generate) aRow.Generate = true;
+                    if (AutoSelect && !aRow.Generate) aRow.Generate = true;
 
                     if (mBlGeneratorSettings.EnitaetenAusnahmeDatenuebernahme.Contains(aRow.ObjectName)) continue;
 
@@ -354,7 +356,7 @@ namespace EHA.ZESA.Util.GeneratorUI
                 if (mBlGeneratorSettings.EnitaetenPflichDatenuebernahme.Contains(aRow.ObjectName))
                 {
                     if (!aRow.Stammdatenuebernahme) aRow.Stammdatenuebernahme = true;
-                    if (!IgnoreStammdaten && !aRow.Generate) aRow.Generate = true;
+                    if (AutoSelect && !aRow.Generate) aRow.Generate = true;
                 }
             }
         }
