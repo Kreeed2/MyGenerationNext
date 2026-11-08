@@ -47,24 +47,64 @@ async Task<bool> EnsureDb()
 async Task SelectTables()
 {
     if (!await EnsureDb()) return;
-    var prompt = new MultiSelectionPrompt<string>()
-        .Title("Tick the tables/views/functions to generate [grey](space = toggle, enter = accept)[/]")
-        .PageSize(20)
-        .NotRequired()
-        .MoreChoicesText("[grey](Move up and down for more)[/]");
-    foreach (var t in db!.Tables)
+
+    var categories = new (string Label, Func<IEnumerable<string>> Names)[]
     {
-        var name = $"{t.Schema}.{t.Name}";
-        prompt.AddChoice(name);
-        if (settings.SelectedTables.Contains(name)) prompt.Select(name);
-    }
-    foreach (var f in db.Procedures.Where(p => p.IsFunction))
+        ("Tables",    () => db!.TablesOnly.Select(t => $"{t.Schema}.{t.Name}")),
+        ("Views",     () => db!.Views.Select(v => $"{v.Schema}.{v.Name}")),
+        ("Functions", () => db!.Procedures.Where(p => p.IsFunction).Select(f => $"{f.Schema}.{f.Name}")),
+    };
+
+    var selected = new HashSet<string>(settings.SelectedTables, StringComparer.OrdinalIgnoreCase);
+
+    while (true)
     {
-        var name = $"{f.Schema}.{f.Name}";
-        prompt.AddChoice(name);
-        if (settings.SelectedTables.Contains(name)) prompt.Select(name);
+        var tabs = categories.Select(c =>
+        {
+            var total = c.Names().Count();
+            var picked = c.Names().Count(selected.Contains);
+            return $"{c.Label} [grey]({picked}/{total})[/]";
+        }).Append("Done").ToArray();
+
+        var tab = AnsiConsole.Prompt(new SelectionPrompt<string>()
+            .Title("Pick an object type [grey](selected/total shown per type)[/]")
+            .AddChoices(tabs));
+
+        if (tab == "Done") break;
+
+        var category = categories[Array.IndexOf(tabs, tab)];
+        var all = category.Names().OrderBy(n => n).ToList();
+
+        var filter = AnsiConsole.Prompt(
+            new TextPrompt<string>($"Filter {category.Label.ToLowerInvariant()} [grey](empty = show all)[/]:")
+                .AllowEmpty());
+        var matches = string.IsNullOrWhiteSpace(filter)
+            ? all
+            : all.Where(n => n.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (matches.Count == 0)
+        {
+            AnsiConsole.MarkupLine($"[yellow]No {category.Label.ToLowerInvariant()} match '{Markup.Escape(filter)}'.[/]");
+            Pause();
+            continue;
+        }
+
+        var prompt = new MultiSelectionPrompt<string>()
+            .Title($"Tick the {category.Label.ToLowerInvariant()} to generate [grey](space = toggle, enter = accept)[/]")
+            .PageSize(20)
+            .NotRequired()
+            .MoreChoicesText("[grey](Move up and down for more)[/]");
+        foreach (var name in matches)
+        {
+            prompt.AddChoice(name);
+            if (selected.Contains(name)) prompt.Select(name);
+        }
+        var picked = AnsiConsole.Prompt(prompt);
+        foreach (var name in matches) selected.Remove(name);
+        foreach (var name in picked) selected.Add(name);
     }
-    settings.SelectedTables = AnsiConsole.Prompt(prompt);
+
+    settings.SelectedTables = selected.ToList();
     settings.Save(settingsPath);
 }
 
