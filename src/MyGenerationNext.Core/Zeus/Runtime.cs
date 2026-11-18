@@ -97,6 +97,7 @@ namespace Zeus
         public void append(string path)
         {
             path = Norm(path);
+            EHA.ZESA.Util.GeneratorUI.TfsHelper.EnsureWritable(path);
             EnsureDirectory(path);
             File.AppendAllText(path, _output.ToString(), new UTF8Encoding(false));
         }
@@ -106,6 +107,8 @@ namespace Zeus
         public void saveEnc(string path, object action, object encoding)
         {
             path = Norm(path);
+            // generated files may live in a TFVC workspace and be checked in (read-only) -> check out first
+            EHA.ZESA.Util.GeneratorUI.TfsHelper.EnsureWritable(path);
             var enc = encoding as Encoding ?? (encoding?.ToString()?.ToLowerInvariant()) switch
             {
                 "ascii" => Encoding.ASCII,

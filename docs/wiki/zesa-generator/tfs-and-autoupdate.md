@@ -23,6 +23,25 @@ Methods and side effects:
 
 These are important effects to isolate in a port. A non-TFS generation mode should not silently attempt workspace initialization, and filesystem generation should be testable without check-in/project-file modification.
 
+## TFVC auto-checkout in the .NET 10 port (`src/`)
+
+The headless port replaces the TFS object model with the TFVC command line: `EHA.ZESA.Util.GeneratorUI.TfsHelper` (`src/MyGenerationNext.Core/Compat/GeneratorUI/TfsHelper.cs`) shells out to `tf.exe checkout /noprompt /lock:none <file>` (and `tf add` for `Add()`). `tf.exe` is located via the `MGN_TF_EXE` environment variable, `TfsHelper.TfExePath`, the `PATH`, `vswhere` (Team Explorer component), and the well-known Visual Studio install directories.
+
+TFVC marks checked-in files read-only, so every write path checks the file out first via `TfsHelper.EnsureWritable(path)`:
+
+- `ZeusOutput.save/saveEnc/append` (generated source files, `src/MyGenerationNext.Core/Zeus/Runtime.cs`)
+- the template `File.WriteAllText`/`File.Delete` facade (`src/MyGenerationNext.Core/Zeus/WinPath.cs`)
+- `MetaDataXml.Save` (BLGeneratorMetaData, via `CheckOutMetaDataFile`)
+- `GeneratorHelper.AddFileToProject` (`.csproj` entries) and `GeneratorHelper.SerializeSettings`
+
+Behavior details:
+
+- Only existing read-only files are checked out; new or already writable files are untouched.
+- If `tf.exe` cannot be found or fails, the read-only flag is cleared as a fallback so generation does not crash — the file is then **not** a pending edit in TFVC (only visible via "detect local changes"), and a message is written to `TfsHelper.Log` (the CLI prints it).
+- `TfsHelper.Enabled = false` disables the automatic checkout entirely (tests/local runs).
+- `CurrentTfSWorkspace` can force a workspace; when set explicitly it is passed as `/workspace:` to tf.exe, otherwise tf picks the workspace owning the local path.
+- There is no automatic check-in (`CheckInMetaDataFile` is a no-op) and no server-path `Get` (`GetUtilities`); `Add()` pends new files via `tf add`.
+
 ## Packaged generator DLL versions
 
 `BusinesslogicGeneratorUI/GeneratorDll/` contains version folders `Version2.0.0` through `Version2.7.0`, then `Version3.0.0` and `Version3.1.0`. Older folders may also include metadata/settings XML; later folders primarily include DLLs. `AutoUpdate/CurrentVersion.txt` contains `3.1.0.28308`; the current source snapshot under `_MyGeneration13_2025/` includes a `ZESABLGeneratorUI.dll`. The `BusinesslogicGeneratorUI.csproj` itself references `GeneratorDll/Version3.1.0/MyMeta.dll` and outputs release assembly to `lib`.

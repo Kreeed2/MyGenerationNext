@@ -163,6 +163,7 @@ async Task Generate()
     Directory.CreateDirectory(settings.SourceDirectory);
 
     var meta = Path.Combine(settings.TemplateDirectory, "BLGeneratorMetaData");
+    TfsHelper.Log = m => AnsiConsole.MarkupLine($"[grey]{Markup.Escape(m)}[/]");
     GeneratorEnvironment.Reset();
     GeneratorEnvironment.Database = db;
     GeneratorEnvironment.AutoSelectStammdatenDependencies = false;
