@@ -301,11 +301,8 @@ namespace EHA.ZESA.Util.GeneratorUI
                 return;
             try
             {
-                FileInfo fi = new FileInfo(FILENAME_SETTINGS);
-                if (fi.Exists && fi.IsReadOnly)
-                {
-                    fi.IsReadOnly = false;
-                }
+                // settings file may be checked in (read-only) in TFVC -> check it out first
+                TfsHelper.Instance.CheckOut(FILENAME_SETTINGS);
 
                 // serialisieren
                 XmlSerializer serializer = new XmlSerializer(typeof(BLGeneratorSettings));
@@ -399,6 +396,8 @@ namespace EHA.ZESA.Util.GeneratorUI
                     configBuilder.Append(myConfigLines[i]);
                 }
             }
+            // Projektdatei kann in TFVC eingecheckt (read-only) sein -> vorher auschecken
+            TfsHelper.Instance.CheckOut(configFile);
             // Am Ende speichern wird ie datei ab
             File.WriteAllText(configFile, configBuilder.ToString(), Encoding.UTF8);
         }

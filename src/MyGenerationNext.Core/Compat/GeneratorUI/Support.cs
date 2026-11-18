@@ -109,19 +109,6 @@ namespace EHA.ZESA.Util.GeneratorUI
         public bool IsNullable { get; set; }
     }
 
-    /// <summary>Source control integration is not available; all operations are no-ops.</summary>
-    public class TfsHelper
-    {
-        private static readonly TfsHelper _instance = new();
-        public static TfsHelper Instance => _instance;
-        public string CurrentTfSWorkspace => Environment.MachineName;
-        public void CheckInMetaDataFile() { }
-        public void CheckOutMetaDataFile(string pMetadataFile) { }
-        public void CheckOut(string pFullFilenameAndPath) { }
-        public void Add(string pFullFilenameAndPath) { }
-        public void GetUtilities() { }
-    }
-
     public enum DialogResult { None = 0, OK = 1, Cancel = 2 }
 
     /// <summary>One row of the generator selection (the legacy MetaData.MetaDataRow).</summary>
@@ -175,6 +162,9 @@ namespace EHA.ZESA.Util.GeneratorUI
 
         public static void Save(string path, string targetPath, IEnumerable<MetaDataRow> rows)
         {
+            // the metadata file may live in a TFVC workspace and be checked in (read-only)
+            TfsHelper.Instance.CheckOutMetaDataFile(path);
+
             var root = new XElement(Ns + "MetaData", new XElement(Ns + "PathInfo", new XElement(Ns + "TargetPath", targetPath)));
             foreach (var r in rows)
             {

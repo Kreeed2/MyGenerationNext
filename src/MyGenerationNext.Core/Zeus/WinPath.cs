@@ -21,6 +21,16 @@ public static class File
     public static bool Exists(string? path) => path is not null && System.IO.File.Exists(Paths.Normalize(path));
     public static string ReadAllText(string path) => System.IO.File.ReadAllText(Paths.Normalize(path));
     public static string[] ReadAllLines(string path) => System.IO.File.ReadAllLines(Paths.Normalize(path));
-    public static void WriteAllText(string path, string contents) => System.IO.File.WriteAllText(Paths.Normalize(path), contents);
-    public static void Delete(string path) => System.IO.File.Delete(Paths.Normalize(path));
+    public static void WriteAllText(string path, string contents)
+    {
+        path = Paths.Normalize(path);
+        EHA.ZESA.Util.GeneratorUI.TfsHelper.EnsureWritable(path);
+        System.IO.File.WriteAllText(path, contents);
+    }
+    public static void Delete(string path)
+    {
+        path = Paths.Normalize(path);
+        EHA.ZESA.Util.GeneratorUI.TfsHelper.EnsureWritable(path);
+        System.IO.File.Delete(path);
+    }
 }
