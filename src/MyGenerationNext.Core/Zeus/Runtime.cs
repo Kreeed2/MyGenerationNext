@@ -107,8 +107,6 @@ namespace Zeus
         public void saveEnc(string path, object action, object encoding)
         {
             path = Norm(path);
-            // generated files may live in a TFVC workspace and be checked in (read-only) -> check out first
-            EHA.ZESA.Util.GeneratorUI.TfsHelper.EnsureWritable(path);
             var enc = encoding as Encoding ?? (encoding?.ToString()?.ToLowerInvariant()) switch
             {
                 "ascii" => Encoding.ASCII,
@@ -123,7 +121,21 @@ namespace Zeus
             else if (action is string s && s.Length > 0) a = s.ToLowerInvariant()[..1];
 
             var exists = File.Exists(path);
-            bool write = true, appendMode = false;
+            bool appendMode = false;
+            if (exists)
+            {
+                switch (a)
+                {
+                    case "a": appendMode = true; break;
+                    case "b":
+                    case "o": break; // move/delete below, after the checkout
+                    default: return; // "d" and unknown actions: never overwrite, do not touch the file
+                }
+            }
+
+            // generated files may live in a TFVC workspace and be checked in (read-only) -> check out first
+            EHA.ZESA.Util.GeneratorUI.TfsHelper.EnsureWritable(path);
+
             if (exists)
             {
                 switch (a)
@@ -135,11 +147,8 @@ namespace Zeus
                         File.Move(path, bak);
                         break;
                     case "o": File.Delete(path); break;
-                    case "a": appendMode = true; break;
-                    default: write = false; break; // "d": never overwrite
                 }
             }
-            if (!write) return;
 
             EnsureDirectory(path);
             using (var w = new StreamWriter(path, appendMode, enc)) w.Write(_output.ToString());

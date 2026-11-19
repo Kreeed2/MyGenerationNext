@@ -37,9 +37,10 @@ TFVC marks checked-in files read-only, so every write path checks the file out f
 Behavior details:
 
 - Only existing read-only files are checked out; new or already writable files are untouched.
-- If `tf.exe` cannot be found or fails, the read-only flag is cleared as a fallback so generation does not crash — the file is then **not** a pending edit in TFVC (only visible via "detect local changes"), and a message is written to `TfsHelper.Log` (the CLI prints it).
+- If `tf.exe` cannot be found or the checkout leaves the file read-only, the read-only flag is cleared as a fallback so generation does not crash — the file is then **not** a pending edit in TFVC (only visible via "detect local changes"), and a message is written to `TfsHelper.Log` (the CLI prints it).
 - `TfsHelper.Enabled = false` disables the automatic checkout entirely (tests/local runs).
-- `CurrentTfSWorkspace` can force a workspace; when set explicitly it is passed as `/workspace:` to tf.exe, otherwise tf picks the workspace owning the local path.
+- `CurrentTfSWorkspace` is kept for legacy API compatibility but is never passed to tf.exe: `tf checkout` and `tf add` do not support `/workspace:`, so tf always resolves the workspace that owns the local path.
+- `ZeusOutput.save/saveEnc` with a no-overwrite action (`"d"`) returns before any checkout, so files that will not be overwritten are not pended as edits.
 - There is no automatic check-in (`CheckInMetaDataFile` is a no-op) and no server-path `Get` (`GetUtilities`); `Add()` pends new files via `tf add`.
 
 ## Packaged generator DLL versions
