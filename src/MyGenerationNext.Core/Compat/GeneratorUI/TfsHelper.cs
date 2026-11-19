@@ -40,14 +40,14 @@ namespace EHA.ZESA.Util.GeneratorUI
         private string? _workspace;
 
         /// <summary>
-        /// Workspace name override (legacy CurrentTfSWorkspace). Defaults to the machine name like the
-        /// legacy UI; only an explicitly set value is passed to tf.exe as /workspace: — otherwise tf picks
-        /// the workspace that owns the local path.
+        /// Workspace name (legacy CurrentTfSWorkspace). Informational only: <c>tf checkout</c> and
+        /// <c>tf add</c> do not support <c>/workspace:</c>, so this value is never passed to tf.exe —
+        /// tf resolves the workspace that owns the local path. Defaults to the machine name like the legacy UI.
         /// </summary>
         public string CurrentTfSWorkspace
         {
             get => _workspace ?? Environment.MachineName;
-            set => _workspace = value;
+            set => _workspace = string.IsNullOrWhiteSpace(value) ? null : value;
         }
 
         /// <summary>No automatic check-in in the headless port (legacy checked the metadata server path in).</summary>
@@ -61,7 +61,9 @@ namespace EHA.ZESA.Util.GeneratorUI
 
         /// <summary>
         /// Pends an edit for the given local file when it exists and is read-only (i.e. checked in).
-        /// New files and already writable files are left alone.
+        /// New files and already writable files are left alone. If the checkout is not possible
+        /// (tf.exe missing or failing), the read-only attribute is cleared as a fallback — the change
+        /// is then NOT a pending edit in TFVC (visible only via "detect local changes").
         /// </summary>
         public void CheckOut(string pFullFilenameAndPath)
         {
@@ -70,15 +72,14 @@ namespace EHA.ZESA.Util.GeneratorUI
             var fi = new FileInfo(pFullFilenameAndPath);
             if (!fi.Exists || !fi.IsReadOnly) return;
 
-            var args = new List<string> { "checkout", "/noprompt", "/lock:none" };
-            if (_workspace is { Length: > 0 }) args.Add("/workspace:" + _workspace);
-            args.Add(fi.FullName);
-            RunTf(args.ToArray());
+            // tf checkout has no /workspace: switch — tf resolves the workspace from the local path
+            RunTf("checkout", "/noprompt", "/lock:none", fi.FullName);
 
             fi.Refresh();
             if (fi.IsReadOnly)
             {
-                throw new UnauthorizedAccessException($"TFVC: failed to check out '{fi.FullName}' (file is still read-only).");
+                fi.IsReadOnly = false;
+                Log?.Invoke($"TFVC: tf.exe unavailable or checkout failed for '{fi.FullName}'; cleared the read-only attribute as fallback (no pending edit created).");
             }
             else
             {
@@ -92,16 +93,14 @@ namespace EHA.ZESA.Util.GeneratorUI
             if (!Enabled || string.IsNullOrWhiteSpace(pFullFilenameAndPath)) return;
             if (!File.Exists(pFullFilenameAndPath)) return;
 
-            var args = new List<string> { "add", "/noprompt" };
-            if (_workspace is { Length: > 0 }) args.Add("/workspace:" + _workspace);
-            args.Add(pFullFilenameAndPath);
-            RunTf([.. args]);
+            // tf add has no /workspace: switch — tf resolves the workspace from the local path
+            RunTf("add", "/noprompt", pFullFilenameAndPath);
         }
 
         /// <summary>Convenience entry point used by all file-writing paths: makes the file writable, checking it out of TFVC if necessary.</summary>
         public static void EnsureWritable(string path) => Instance.CheckOut(path);
 
-        private bool RunTf(string[] args)
+        private bool RunTf(params string[] args)
         {
             lock (_tfLock)
             {
