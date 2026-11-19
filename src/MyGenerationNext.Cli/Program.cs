@@ -143,6 +143,11 @@ void EditSettings()
         new TextPrompt<string>("Template directory:").DefaultValue(settings.TemplateDirectory));
     settings.SourceDirectory = AnsiConsole.Prompt(
         new TextPrompt<string>("Source directory:").DefaultValue(settings.SourceDirectory));
+    settings.MetaDataFile = AnsiConsole.Prompt(
+        new TextPrompt<string>("Metadata file (BLGeneratorUIMeta.xml) [grey](empty = <template dir>/BLGeneratorMetaData)[/]:")
+            .DefaultValue(settings.MetaDataFile).AllowEmpty());
+    settings.SaveMetaData = AnsiConsole.Prompt(
+        new ConfirmationPrompt("Write metadata overrides back after generation?").DefaultValue(settings.SaveMetaData));
     settings.Save(settingsPath);
     db = null; // connection string may have changed
 }
@@ -171,6 +176,8 @@ async Task Generate()
     GeneratorEnvironment.SelectedObjects = settings.SelectedTables
         .Select(t => t[(t.IndexOf('.') + 1)..]).ToHashSet(StringComparer.OrdinalIgnoreCase);
     GeneratorEnvironment.MemberUseOldDataSetLogicFile = Path.Combine(meta, "MemberUseOldDataSetLogic.xml");
+    GeneratorEnvironment.MetaDataFile = settings.ResolveMetaDataFile();
+    GeneratorEnvironment.SaveMetaData = settings.SaveMetaData;
     await GeneratorEnvironment.LoadServerExtrasAsync(settings.ConnectionString);
 
     var files = 0; var failed = 0;

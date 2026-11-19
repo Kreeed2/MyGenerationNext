@@ -4,6 +4,7 @@ using MyGenerationNext.Core.Zeus;
 
 namespace MyGenerationNext.Tests;
 
+[Collection("Generator state")]
 public class TemplateTests
 {
     private static string TemplatesDir()

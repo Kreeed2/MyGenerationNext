@@ -8,6 +8,14 @@ public sealed class AppSettings
     public string TemplateDirectory { get; set; } = "templates";
     public string SourceDirectory { get; set; } = "generated";
     public List<string> SelectedTables { get; set; } = [];
+    /// <summary>Saved per-object overrides (BLGeneratorUIMeta.xml: namespaces for views/functions, Generate, LOV, ...). Empty = &lt;TemplateDirectory&gt;/BLGeneratorMetaData/BLGeneratorUIMeta.xml.</summary>
+    public string MetaDataFile { get; set; } = "";
+    /// <summary>Write the metadata file back after generation so manual overrides persist.</summary>
+    public bool SaveMetaData { get; set; } = true;
+
+    public string ResolveMetaDataFile() => string.IsNullOrWhiteSpace(MetaDataFile)
+        ? Path.Combine(TemplateDirectory, "BLGeneratorMetaData", "BLGeneratorUIMeta.xml")
+        : MetaDataFile;
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
 

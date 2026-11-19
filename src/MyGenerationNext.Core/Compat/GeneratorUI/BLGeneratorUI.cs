@@ -60,6 +60,10 @@ namespace EHA.ZESA.Util.GeneratorUI
             PathTfsRepos = mTargetPath.Replace("/", "\\") + "\\";
 
             var objToGen = GeneratorHelper.GetObjectsToGenerate();
+            Dictionary<string, bool>? persistedGenerate = (GeneratorEnvironment.SelectedObjects is { } || objToGen.Count > 0)
+                ? mRows.ToDictionary(r => r.ObjectName, r => r.Generate)
+                : null;
+
             if (GeneratorEnvironment.SelectedObjects is { } selected)
             {
                 foreach (var row in mRows)
@@ -75,6 +79,10 @@ namespace EHA.ZESA.Util.GeneratorUI
 
             PruefeStammdatenUebernahme();
             FillGenInfo();
+            if (persistedGenerate is { })
+                foreach (var row in mRows)
+                    if (persistedGenerate.TryGetValue(row.ObjectName, out var generate))
+                        row.Generate = generate;
             SaveLocalMetadata();
             return DialogResult.OK;
         }
