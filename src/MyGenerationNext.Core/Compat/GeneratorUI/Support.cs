@@ -162,6 +162,9 @@ namespace EHA.ZESA.Util.GeneratorUI
 
         public static void Save(string path, string targetPath, IEnumerable<MetaDataRow> rows)
         {
+            var dir = Path.GetDirectoryName(Path.GetFullPath(path));
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
             // the metadata file may live in a TFVC workspace and be checked in (read-only)
             TfsHelper.Instance.CheckOutMetaDataFile(path);
 
