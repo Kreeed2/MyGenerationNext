@@ -133,7 +133,7 @@ namespace EHA.ZESA.Util.GeneratorUI
         public bool IsPrimaryKeyInteger;
     }
 
-    internal static class MetaDataXml
+    public static class MetaDataXml
     {
         private static readonly XNamespace Ns = "http://www.tempuri.org/MetaData.xsd";
 

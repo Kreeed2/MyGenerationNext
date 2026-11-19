@@ -16,12 +16,13 @@ while (true)
 
     var choice = AnsiConsole.Prompt(new SelectionPrompt<string>()
         .Title("What do you want to do?")
-        .AddChoices("Select tables", "Edit settings", "Generate", "Quit"));
+        .AddChoices("Select tables", "Edit settings", "Edit object metadata", "Generate", "Quit"));
 
     switch (choice)
     {
         case "Select tables": await SelectTables(); break;
         case "Edit settings": EditSettings(); break;
+        case "Edit object metadata": await EditMetadata(); break;
         case "Generate": await Generate(); break;
         default: return;
     }
@@ -149,6 +150,70 @@ void EditSettings()
     settings.SaveMetaData = AnsiConsole.Confirm("Write metadata overrides back after generation?", settings.SaveMetaData);
     settings.Save(settingsPath);
     db = null; // connection string may have changed
+}
+
+async Task EditMetadata()
+{
+    if (!await EnsureDb()) return;
+
+    var metaFile = settings.ResolveMetaDataFile();
+    var (savedTarget, savedRows) = File.Exists(metaFile)
+        ? MetaDataXml.Load(metaFile)
+        : ((string?)null, new List<MetaDataRow>());
+
+    var categories = new (string Label, Func<IEnumerable<(string Name, string Type)>> Objects)[]
+    {
+        ("Tables",    () => db!.TablesOnly.Select(t => ($"{t.Schema}.{t.Name}", BLGeneratorUI.TYPE_TABLE))),
+        ("Views",     () => db!.Views.Select(v => ($"{v.Schema}.{v.Name}", BLGeneratorUI.TYPE_VIEW))),
+        ("Functions", () => db!.Procedures
+            .Where(p => p.IsFunction && p.Name.StartsWith("f_sel", StringComparison.OrdinalIgnoreCase))
+            .Select(f => ($"{f.Schema}.{f.Name}", BLGeneratorUI.TYPE_FUNCTION))),
+    };
+
+    var category = AnsiConsole.Prompt(new SelectionPrompt<string>()
+        .Title("Edit metadata of which object type?")
+        .AddChoices(categories.Select(c => c.Label)));
+    var objects = categories.Single(c => c.Label == category).Objects()
+        .OrderBy(o => o.Name, StringComparer.OrdinalIgnoreCase).ToList();
+    if (objects.Count == 0) { AnsiConsole.MarkupLine("[yellow]No objects of this type in the database.[/]"); Pause(); return; }
+
+    var picked = AnsiConsole.Prompt(new SelectionPrompt<string>()
+        .Title($"Pick an object [grey]({objects.Count} {category.ToLowerInvariant()})[/]")
+        .PageSize(20)
+        .AddChoices(objects.Select(o => o.Name)));
+    var (name, type) = objects.Single(o => o.Name == picked);
+    var objectName = name[(name.IndexOf('.') + 1)..];
+
+    var row = savedRows.FirstOrDefault(r => r.ObjectName.Equals(objectName, StringComparison.OrdinalIgnoreCase));
+    var isNew = row is null;
+    row ??= new MetaDataRow
+    {
+        ObjectName = objectName,
+        Type = type,
+        Namespace = type == BLGeneratorUI.TYPE_TABLE ? GeneratorHelper.FindNamespace(objectName) : "",
+        EntityName = GeneratorHelper.BuildEntityName(objectName, type),
+        Generate = true,
+    };
+
+    AnsiConsole.MarkupLine($"[grey]{(isNew ? "New row" : "Editing")}[/] {Markup.Escape(objectName)} [grey]({type}) — {Markup.Escape(metaFile)}[/]");
+    row.Namespace = AnsiConsole.Prompt(new TextPrompt<string>("Namespace:").DefaultValue(row.Namespace).AllowEmpty());
+    row.EntityName = AnsiConsole.Prompt(new TextPrompt<string>("Entity name:").DefaultValue(row.EntityName));
+    row.Generate = AnsiConsole.Confirm("Generate?", row.Generate);
+    row.LOV = AnsiConsole.Confirm("LOV (list of values)?", row.LOV);
+
+    if (isNew) savedRows.Add(row);
+    TfsHelper.Log = m => AnsiConsole.MarkupLine($"[grey]{Markup.Escape(m)}[/]");
+    var targetPath = !string.IsNullOrEmpty(savedTarget) ? savedTarget : Path.GetFullPath(settings.SourceDirectory);
+    MetaDataXml.Save(metaFile, targetPath, savedRows);
+    AnsiConsole.MarkupLine($"[green]Saved[/] {Markup.Escape(metaFile)} [grey]({savedRows.Count} rows)[/]");
+
+    if (row.Generate && !settings.SelectedTables.Contains(name, StringComparer.OrdinalIgnoreCase))
+    {
+        settings.SelectedTables.Add(name);
+        settings.Save(settingsPath);
+        AnsiConsole.MarkupLine($"[grey]Added {Markup.Escape(name)} to the generation selection.[/]");
+    }
+    Pause();
 }
 
 async Task Generate()
