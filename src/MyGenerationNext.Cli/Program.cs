@@ -64,7 +64,7 @@ async Task SelectTables()
             var total = c.Names().Count();
             var picked = c.Names().Count(selected.Contains);
             return $"{c.Label} [grey]({picked}/{total})[/]";
-        }).Append("Done").ToArray();
+        }).Append("Deselect all").Append("Done").ToArray();
 
         var tab = AnsiConsole.Prompt(new SelectionPrompt<string>()
             .Title("Pick an object type [grey](selected/total shown per type)[/]")
@@ -72,19 +72,46 @@ async Task SelectTables()
 
         if (tab == "Done") break;
 
+        if (tab == "Deselect all")
+        {
+            selected.Clear();
+            AnsiConsole.MarkupLine("[grey]All selected objects deselected.[/]");
+            Pause();
+            continue;
+        }
+
         var category = categories[Array.IndexOf(tabs, tab)];
         var all = category.Names().OrderBy(n => n).ToList();
 
-        var filter = AnsiConsole.Prompt(
-            new TextPrompt<string>($"Filter {category.Label.ToLowerInvariant()} [grey](empty = show all)[/]:")
-                .AllowEmpty());
-        var matches = string.IsNullOrWhiteSpace(filter)
-            ? all
-            : all.Where(n => n.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
+        var filterChoice = AnsiConsole.Prompt(new SelectionPrompt<string>()
+            .Title($"Filter {category.Label.ToLowerInvariant()} [grey]({all.Count(selected.Contains)} of {all.Count} selected)[/]")
+            .AddChoices("Show all", "Show selected only", "Custom text filter..."));
+
+        List<string> matches;
+        string? filterText = null;
+        if (filterChoice == "Show selected only")
+        {
+            matches = all.Where(selected.Contains).ToList();
+        }
+        else if (filterChoice == "Custom text filter...")
+        {
+            filterText = AnsiConsole.Prompt(
+                new TextPrompt<string>($"Filter {category.Label.ToLowerInvariant()} [grey](empty = show all)[/]:")
+                    .AllowEmpty());
+            matches = string.IsNullOrWhiteSpace(filterText)
+                ? all
+                : all.Where(n => n.Contains(filterText, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+        else
+        {
+            matches = all;
+        }
 
         if (matches.Count == 0)
         {
-            AnsiConsole.MarkupLine($"[yellow]No {category.Label.ToLowerInvariant()} match '{Markup.Escape(filter)}'.[/]");
+            AnsiConsole.MarkupLine(filterChoice == "Show selected only"
+                ? $"[yellow]No {category.Label.ToLowerInvariant()} selected yet.[/]"
+                : $"[yellow]No {category.Label.ToLowerInvariant()} match '{Markup.Escape(filterText ?? string.Empty)}'.[/]");
             Pause();
             continue;
         }
