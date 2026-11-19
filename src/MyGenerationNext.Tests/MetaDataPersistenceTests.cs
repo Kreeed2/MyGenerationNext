@@ -161,6 +161,33 @@ public class MetaDataPersistenceTests
     }
 
     [Fact]
+    public void MetaDataXml_SaveLoad_RoundtripsRowsAndTargetPath()
+    {
+        var dir = TempDir();
+        try
+        {
+            var path = Path.Combine(dir, "BLGeneratorUIMeta.xml");
+            MetaDataXml.Save(path, @"C:\Target", [
+                new MetaDataRow { ObjectName = "V_NEW", Namespace = "Kundenabrechnung", Generate = true, Type = "View", EntityName = "NEW" },
+            ]);
+
+            var (target, rows) = MetaDataXml.Load(path);
+
+            Assert.Equal(@"C:\Target", target);
+            var row = Assert.Single(rows);
+            Assert.Equal("V_NEW", row.ObjectName);
+            Assert.Equal("Kundenabrechnung", row.Namespace);
+            Assert.True(row.Generate);
+            Assert.Equal("View", row.Type);
+            Assert.Equal("NEW", row.EntityName);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
     public void ShowDialog_WithoutMetaDataFile_UsesConventionNamespacesOnly()
     {
         var dir = TempDir();
