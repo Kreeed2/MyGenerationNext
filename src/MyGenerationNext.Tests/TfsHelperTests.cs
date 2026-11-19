@@ -4,6 +4,10 @@ using Zeus;
 
 namespace MyGenerationNext.Tests;
 
+[CollectionDefinition("TFVC shared state", DisableParallelization = true)]
+public class TfsHelperTestCollection { }
+
+[Collection("TFVC shared state")]
 public class TfsHelperTests : IDisposable
 {
     public TfsHelperTests()
