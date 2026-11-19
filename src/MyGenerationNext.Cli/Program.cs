@@ -146,8 +146,7 @@ void EditSettings()
     settings.MetaDataFile = AnsiConsole.Prompt(
         new TextPrompt<string>("Metadata file (BLGeneratorUIMeta.xml) [grey](empty = <template dir>/BLGeneratorMetaData)[/]:")
             .DefaultValue(settings.MetaDataFile).AllowEmpty());
-    settings.SaveMetaData = AnsiConsole.Prompt(
-        new ConfirmationPrompt("Write metadata overrides back after generation?").DefaultValue(settings.SaveMetaData));
+    settings.SaveMetaData = AnsiConsole.Confirm("Write metadata overrides back after generation?", settings.SaveMetaData);
     settings.Save(settingsPath);
     db = null; // connection string may have changed
 }
