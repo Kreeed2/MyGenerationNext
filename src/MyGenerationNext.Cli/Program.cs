@@ -161,8 +161,16 @@ async Task EditMetadata()
         ? MetaDataXml.Load(metaFile)
         : ((string?)null, new List<MetaDataRow>());
 
+    IEnumerable<(string Name, string Type)> All() =>
+        db!.TablesOnly.Select(t => ($"{t.Schema}.{t.Name}", BLGeneratorUI.TYPE_TABLE))
+            .Concat(db.Views.Select(v => ($"{v.Schema}.{v.Name}", BLGeneratorUI.TYPE_VIEW)))
+            .Concat(db.Procedures
+                .Where(p => p.IsFunction && p.Name.StartsWith("f_sel", StringComparison.OrdinalIgnoreCase))
+                .Select(f => ($"{f.Schema}.{f.Name}", BLGeneratorUI.TYPE_FUNCTION)));
+
     var categories = new (string Label, Func<IEnumerable<(string Name, string Type)>> Objects)[]
     {
+        ("All",       All),
         ("Tables",    () => db!.TablesOnly.Select(t => ($"{t.Schema}.{t.Name}", BLGeneratorUI.TYPE_TABLE))),
         ("Views",     () => db!.Views.Select(v => ($"{v.Schema}.{v.Name}", BLGeneratorUI.TYPE_VIEW))),
         ("Functions", () => db!.Procedures
@@ -173,14 +181,20 @@ async Task EditMetadata()
     var category = AnsiConsole.Prompt(new SelectionPrompt<string>()
         .Title("Edit metadata of which object type?")
         .AddChoices(categories.Select(c => c.Label)));
+    var what = category == "All" ? "objects" : category.ToLowerInvariant();
     var objects = categories.Single(c => c.Label == category).Objects()
         .OrderBy(o => o.Name, StringComparer.OrdinalIgnoreCase).ToList();
-    if (objects.Count == 0) { AnsiConsole.MarkupLine("[yellow]No objects of this type in the database.[/]"); Pause(); return; }
+    if (objects.Count == 0) { AnsiConsole.MarkupLine($"[yellow]No {what} in the database.[/]"); Pause(); return; }
 
-    var picked = AnsiConsole.Prompt(new SelectionPrompt<string>()
-        .Title($"Pick an object [grey]({objects.Count} {category.ToLowerInvariant()})[/]")
+    var picker = new SelectionPrompt<string>()
+        .Title($"Pick an object [grey]({objects.Count} {what}, type to search)[/]")
         .PageSize(20)
-        .AddChoices(objects.Select(o => o.Name)));
+        .MoreChoicesText("[grey](Move up and down for more)[/]")
+        .AddChoices(objects.Select(o => o.Name));
+    picker.SearchEnabled = true;
+    picker.SearchPlaceholderText = "[grey]search...[/]";
+    picker.Converter = n => $"{n} ({objects.Single(o => o.Name == n).Type})";
+    var picked = AnsiConsole.Prompt(picker);
     var (name, type) = objects.Single(o => o.Name == picked);
     var objectName = name[(name.IndexOf('.') + 1)..];
 
