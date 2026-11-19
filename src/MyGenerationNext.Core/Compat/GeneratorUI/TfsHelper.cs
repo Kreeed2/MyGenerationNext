@@ -178,7 +178,7 @@ namespace EHA.ZESA.Util.GeneratorUI
                 if (File.Exists(vswhere))
                 {
                     var installPath = Capture(vswhere,
-                        "-latest -products * -requires Microsoft.VisualStudio.Component.TeamExplorer -property installationPath");
+                        "-latest -products * -requires Microsoft.VisualStudio.TeamExplorer -property installationPath");
                     if (!string.IsNullOrWhiteSpace(installPath))
                     {
                         var tf = Path.Combine(installPath.Trim(), "Common7", "IDE", "CommonExtensions",
