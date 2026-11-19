@@ -17,7 +17,7 @@ namespace EHA.ZESA.Util.GeneratorUI
     public class TfsHelper
     {
         private static readonly TfsHelper _instance = new();
-        private static readonly object _tfLock = new();
+        private static readonly Lock _tfLock = new();
 
         public static TfsHelper Instance => _instance;
 
@@ -78,10 +78,7 @@ namespace EHA.ZESA.Util.GeneratorUI
             fi.Refresh();
             if (fi.IsReadOnly)
             {
-                // Fallback: without tf.exe the file cannot be pended as an edit; clear the flag locally
-                // so writing does not fail. The change is then not a pending edit in TFVC.
-                fi.IsReadOnly = false;
-                Log?.Invoke($"TFVC: '{fi.FullName}' could not be checked out via tf.exe - read-only flag cleared locally only (no pending edit in TFVC).");
+                throw new UnauthorizedAccessException($"TFVC: failed to check out '{fi.FullName}' (file is still read-only).");
             }
             else
             {
@@ -98,7 +95,7 @@ namespace EHA.ZESA.Util.GeneratorUI
             var args = new List<string> { "add", "/noprompt" };
             if (_workspace is { Length: > 0 }) args.Add("/workspace:" + _workspace);
             args.Add(pFullFilenameAndPath);
-            RunTf(args.ToArray());
+            RunTf([.. args]);
         }
 
         /// <summary>Convenience entry point used by all file-writing paths: makes the file writable, checking it out of TFVC if necessary.</summary>
@@ -200,7 +197,7 @@ namespace EHA.ZESA.Util.GeneratorUI
                      })
             {
                 if (string.IsNullOrEmpty(root)) continue;
-                foreach (var year in new[] { "2022", "2019", "2017" })
+                foreach (var year in new[] { "2022", "2019", "2017", "18" })
                 foreach (var edition in new[] { "Enterprise", "Professional", "Community", "BuildTools" })
                 {
                     var tf = Path.Combine(root, "Microsoft Visual Studio", year, edition, "Common7", "IDE",
