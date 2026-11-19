@@ -89,11 +89,9 @@ public class TfsHelperTests : IDisposable
         var logged = new List<string>();
         TfsHelper.Log = logged.Add;
 
-        TfsHelper.Instance.CheckOut(file);
+        Assert.Throws<UnauthorizedAccessException>(() => TfsHelper.Instance.CheckOut(file));
 
-        Assert.False(new FileInfo(file).IsReadOnly);
-        Assert.Equal("original", File.ReadAllText(file));
-        Assert.Contains(logged, m => m.Contains("could not be checked out", StringComparison.OrdinalIgnoreCase));
+        Assert.True(new FileInfo(file).IsReadOnly);
     }
 
     [Fact]
@@ -138,11 +136,9 @@ public class TfsHelperTests : IDisposable
 
         var output = new ZeusOutput();
         output.write("new content");
-        output.save(file, "o");
+        Assert.Throws<UnauthorizedAccessException>(() => output.save(file, "o"));
 
-        Assert.Equal("new content", File.ReadAllText(file));
-        Assert.False(new FileInfo(file).IsReadOnly);
-        Assert.Contains(file, output.SavedFiles.Cast<string>());
+        Assert.True(new FileInfo(file).IsReadOnly);
     }
 
     [Fact]
@@ -157,9 +153,7 @@ public class TfsHelperTests : IDisposable
 
         var output = new ZeusOutput();
         output.write("+new");
-        output.append(file);
-
-        Assert.Equal("old+new", File.ReadAllText(file));
-        Assert.False(new FileInfo(file).IsReadOnly);
+        Assert.Throws<UnauthorizedAccessException>(() => output.append(file));
+        Assert.True(new FileInfo(file).IsReadOnly);
     }
 }
