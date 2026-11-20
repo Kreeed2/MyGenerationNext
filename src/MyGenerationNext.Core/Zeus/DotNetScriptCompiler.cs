@@ -1,6 +1,9 @@
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using System.Text;
+using Basic.Reference.Assemblies;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
@@ -19,32 +22,46 @@ public sealed class TemplateCompileException(string message, IReadOnlyList<strin
 /// </summary>
 public static class DotNetScriptCompiler
 {
-    private static readonly Lazy<IReadOnlyList<MetadataReference>> BaseReferences = new(() =>
-        CollectReferencePaths((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"),
-            typeof(DotNetScriptCompiler).Assembly)
-            .Select(p => (MetadataReference)MetadataReference.CreateFromFile(p)).ToList());
+    private static readonly Lazy<IReadOnlyList<MetadataReference>> BaseReferences = new(() => CollectReferences());
 
     /// <summary>
-    /// Reference paths for template compilation: the trusted platform assemblies plus the core assembly.
-    /// Non-existent entries are skipped — in a single-file bundle Assembly.Location is empty and TPA may list no files.
+    /// References for template compilation: the net10.0 reference assemblies plus every loaded assembly that is
+    /// not part of the framework. Loaded assemblies are referenced from their file when they have one and from
+    /// their in-memory metadata otherwise, so this also works in a single-file bundle (Assembly.Location is empty there).
     /// </summary>
-    public static List<string> CollectReferencePaths(string? trustedPlatformAssemblies, Assembly coreAssembly)
+    public static List<MetadataReference> CollectReferences() =>
+        CollectReferences(AppDomain.CurrentDomain.GetAssemblies().Append(typeof(DotNetScriptCompiler).Assembly));
+
+    public static List<MetadataReference> CollectReferences(IEnumerable<Assembly> loadedAssemblies)
     {
-        var paths = (trustedPlatformAssemblies ?? "")
-            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
-            .Where(File.Exists)
-            .ToList();
-        var core = ResolveAssemblyPath(coreAssembly);
-        if (core is not null && !paths.Contains(core)) paths.Add(core);
-        return paths;
+        var refs = new List<MetadataReference>();
+        var framework = new HashSet<string>(Net100.ReferenceInfos.All.Select(r => r.FileName), StringComparer.OrdinalIgnoreCase);
+        foreach (var r in Net100.References.All) refs.Add(r);
+        foreach (var asm in loadedAssemblies.Distinct())
+        {
+            if (framework.Contains(asm.GetName().Name + ".dll")) continue; // already covered by the ref pack
+            var r = CreateReference(asm);
+            if (r is not null) refs.Add(r);
+        }
+        return refs;
     }
 
-    /// <summary>Assembly file path; for bundle-loaded assemblies (empty Location) probes next to the app host.</summary>
-    public static string? ResolveAssemblyPath(Assembly assembly)
+    /// <summary>
+    /// Reference to a loaded assembly: from its file when it has a location, otherwise from the raw in-memory
+    /// metadata blob (single-file bundles, assemblies loaded from bytes — both have an empty Location).
+    /// </summary>
+    public static unsafe MetadataReference? CreateReference(Assembly assembly)
     {
-        if (!string.IsNullOrEmpty(assembly.Location)) return assembly.Location;
-        var candidate = Path.Combine(AppContext.BaseDirectory, assembly.GetName().Name + ".dll");
-        return File.Exists(candidate) ? candidate : null;
+        if (assembly.IsDynamic) return null;
+        if (!string.IsNullOrEmpty(assembly.Location) && File.Exists(assembly.Location))
+            return MetadataReference.CreateFromFile(assembly.Location);
+        if (assembly.TryGetRawMetadata(out byte* blob, out int length))
+        {
+            var metadata = new byte[length];
+            Marshal.Copy((IntPtr)blob, metadata, 0, length);
+            return AssemblyMetadata.Create(ModuleMetadata.CreateFromMetadata(metadata)).GetReference();
+        }
+        return null;
     }
 
     public static Assembly Compile(ZeusTemplate template, ParsedSegment parsed, string assemblyName)
