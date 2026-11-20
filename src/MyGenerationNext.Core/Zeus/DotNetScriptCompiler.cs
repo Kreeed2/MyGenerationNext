@@ -20,13 +20,32 @@ public sealed class TemplateCompileException(string message, IReadOnlyList<strin
 public static class DotNetScriptCompiler
 {
     private static readonly Lazy<IReadOnlyList<MetadataReference>> BaseReferences = new(() =>
+        CollectReferencePaths((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"),
+            typeof(DotNetScriptCompiler).Assembly)
+            .Select(p => (MetadataReference)MetadataReference.CreateFromFile(p)).ToList());
+
+    /// <summary>
+    /// Reference paths for template compilation: the trusted platform assemblies plus the core assembly.
+    /// Non-existent entries are skipped — in a single-file bundle Assembly.Location is empty and TPA may list no files.
+    /// </summary>
+    public static List<string> CollectReferencePaths(string? trustedPlatformAssemblies, Assembly coreAssembly)
     {
-        var paths = ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? "")
-            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries).ToList();
-        var core = typeof(DotNetScriptCompiler).Assembly.Location;
-        if (!paths.Contains(core)) paths.Add(core);
-        return paths.Select(p => (MetadataReference)MetadataReference.CreateFromFile(p)).ToList();
-    });
+        var paths = (trustedPlatformAssemblies ?? "")
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Where(File.Exists)
+            .ToList();
+        var core = ResolveAssemblyPath(coreAssembly);
+        if (core is not null && !paths.Contains(core)) paths.Add(core);
+        return paths;
+    }
+
+    /// <summary>Assembly file path; for bundle-loaded assemblies (empty Location) probes next to the app host.</summary>
+    public static string? ResolveAssemblyPath(Assembly assembly)
+    {
+        if (!string.IsNullOrEmpty(assembly.Location)) return assembly.Location;
+        var candidate = Path.Combine(AppContext.BaseDirectory, assembly.GetName().Name + ".dll");
+        return File.Exists(candidate) ? candidate : null;
+    }
 
     public static Assembly Compile(ZeusTemplate template, ParsedSegment parsed, string assemblyName)
     {
