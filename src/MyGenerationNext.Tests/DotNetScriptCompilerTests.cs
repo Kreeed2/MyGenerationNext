@@ -1,39 +1,50 @@
 using System.Reflection;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using MyGenerationNext.Core.Zeus;
 
 namespace MyGenerationNext.Tests;
 
 public class DotNetScriptCompilerTests
 {
-    [Fact]
-    public void CollectReferencePathsUsesTpaAndCoreAssembly()
+    private static bool CompilesWith(IEnumerable<MetadataReference> refs, string code)
     {
-        var tpa = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES");
-        var paths = DotNetScriptCompiler.CollectReferencePaths(tpa, typeof(DotNetScriptCompiler).Assembly);
-        Assert.NotEmpty(paths);
-        Assert.All(paths, p => Assert.True(File.Exists(p), p));
-        Assert.Contains(paths, p => p.EndsWith("MyGenerationNext.Core.dll", StringComparison.OrdinalIgnoreCase));
+        var compilation = CSharpCompilation.Create("probe",
+            [CSharpSyntaxTree.ParseText(code)],
+            refs,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        return !compilation.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
-    public void CollectReferencePathsHandlesBundleLoadedAssemblyWithoutLocation()
+    public void CollectReferencesContainsFrameworkAndCoreAssembly()
     {
-        // assemblies loaded from a single-file bundle (or from bytes) have an empty Location
-        var bundled = Assembly.Load(File.ReadAllBytes(typeof(DotNetScriptCompiler).Assembly.Location));
-        Assert.Equal("", bundled.Location);
-        var paths = DotNetScriptCompiler.CollectReferencePaths("", bundled);
-        Assert.NotEmpty(paths);
-        Assert.All(paths, p => Assert.False(string.IsNullOrEmpty(p)));
-        Assert.All(paths, p => Assert.True(File.Exists(p), p));
-        Assert.Contains(paths, p => p.EndsWith("MyGenerationNext.Core.dll", StringComparison.OrdinalIgnoreCase));
+        var refs = DotNetScriptCompiler.CollectReferences();
+        Assert.NotEmpty(refs);
+        Assert.True(CompilesWith(refs, "public class X { public Zeus.IZeusContext? Context; public MyMeta.dbRoot? Db; }"));
     }
 
     [Fact]
-    public void ResolveAssemblyPathFallsBackToBaseDirectoryWhenLocationIsEmpty()
+    public void CreateReferencePrefersFileWhenLocationExists()
     {
+        var reference = DotNetScriptCompiler.CreateReference(typeof(DotNetScriptCompiler).Assembly);
+        Assert.NotNull(reference);
+        Assert.EndsWith("MyGenerationNext.Core.dll", reference.Display ?? "");
+    }
+
+    [Fact]
+    public void CompilesWithInMemoryMetadataWhenLocationIsEmpty()
+    {
+        // assemblies loaded from bytes — like single-file bundles — have an empty Location and no loose dll;
+        // the reference must come from the raw in-memory metadata blob instead
         var bundled = Assembly.Load(File.ReadAllBytes(typeof(DotNetScriptCompiler).Assembly.Location));
         Assert.Equal("", bundled.Location);
-        Assert.Equal(Path.Combine(AppContext.BaseDirectory, "MyGenerationNext.Core.dll"),
-            DotNetScriptCompiler.ResolveAssemblyPath(bundled));
+
+        var reference = DotNetScriptCompiler.CreateReference(bundled);
+        Assert.NotNull(reference);
+
+        // framework ref pack + only the bundle-loaded core assembly, nothing read from disk
+        var refs = DotNetScriptCompiler.CollectReferences([bundled]);
+        Assert.True(CompilesWith(refs, "public class X { public Zeus.IZeusContext? Context; public MyMeta.dbRoot? Db; }"));
     }
 }

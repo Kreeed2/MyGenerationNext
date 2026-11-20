@@ -17,7 +17,6 @@
     <SelfContained Condition="'$(SelfContained)' == ''">true</SelfContained>
     <PublishSingleFile Condition="'$(PublishSingleFile)' == ''">true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract Condition="'$(IncludeNativeLibrariesForSelfExtract)' == ''">true</IncludeNativeLibrariesForSelfExtract>
-    <IncludeAllContentForSelfExtract Condition="'$(IncludeAllContentForSelfExtract)' == ''">true</IncludeAllContentForSelfExtract>
     <EnableCompressionInSingleFile Condition="'$(EnableCompressionInSingleFile)' == ''">true</EnableCompressionInSingleFile>
     <DebugType>embedded</DebugType>
     <DebugSymbols>false</DebugSymbols>
