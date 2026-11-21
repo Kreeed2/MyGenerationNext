@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Reflection.Metadata;
-using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using System.Text;
 using Basic.Reference.Assemblies;
@@ -35,11 +34,16 @@ public static class DotNetScriptCompiler
     public static List<MetadataReference> CollectReferences(IEnumerable<Assembly> loadedAssemblies)
     {
         var refs = new List<MetadataReference>();
-        var framework = new HashSet<string>(Net100.ReferenceInfos.All.Select(r => r.FileName), StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(
+            Net100.ReferenceInfos.All.Select(r => Path.GetFileNameWithoutExtension(r.FileName)),
+            StringComparer.OrdinalIgnoreCase);
         foreach (var r in Net100.References.All) refs.Add(r);
-        foreach (var asm in loadedAssemblies.Distinct())
+        foreach (var asm in loadedAssemblies)
         {
-            if (framework.Contains(asm.GetName().Name + ".dll")) continue; // already covered by the ref pack
+            var name = asm.GetName().Name;
+            // skip runtime implementation assemblies (not in the ref pack, e.g. System.Private.CoreLib) and duplicates
+            if (string.IsNullOrEmpty(name) || name.StartsWith("System.Private.", StringComparison.OrdinalIgnoreCase) || !seen.Add(name))
+                continue;
             var r = CreateReference(asm);
             if (r is not null) refs.Add(r);
         }
@@ -57,9 +61,8 @@ public static class DotNetScriptCompiler
             return MetadataReference.CreateFromFile(assembly.Location);
         if (assembly.TryGetRawMetadata(out byte* blob, out int length))
         {
-            var metadata = new byte[length];
-            Marshal.Copy((IntPtr)blob, metadata, 0, length);
-            return AssemblyMetadata.Create(ModuleMetadata.CreateFromMetadata(metadata)).GetReference();
+            var display = assembly.GetName().Name is { Length: > 0 } name ? name + ".dll" : null;
+            return AssemblyMetadata.Create(ModuleMetadata.CreateFromMetadata((IntPtr)blob, length)).GetReference(display: display);
         }
         return null;
     }
