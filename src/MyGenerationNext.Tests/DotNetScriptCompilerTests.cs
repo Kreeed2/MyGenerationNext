@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.Loader;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using MyGenerationNext.Core.Zeus;
@@ -37,14 +38,46 @@ public class DotNetScriptCompilerTests
     {
         // assemblies loaded from bytes — like single-file bundles — have an empty Location and no loose dll;
         // the reference must come from the raw in-memory metadata blob instead
-        var bundled = Assembly.Load(File.ReadAllBytes(typeof(DotNetScriptCompiler).Assembly.Location));
-        Assert.Equal("", bundled.Location);
+        var alc = new AssemblyLoadContext("single-file-probe", isCollectible: true);
+        try
+        {
+            using var stream = new MemoryStream(File.ReadAllBytes(typeof(DotNetScriptCompiler).Assembly.Location));
+            var bundled = alc.LoadFromStream(stream);
+            Assert.Equal("", bundled.Location);
 
-        var reference = DotNetScriptCompiler.CreateReference(bundled);
-        Assert.NotNull(reference);
+            var reference = DotNetScriptCompiler.CreateReference(bundled);
+            Assert.NotNull(reference);
+            Assert.Equal("MyGenerationNext.Core.dll", reference.Display);
 
-        // framework ref pack + only the bundle-loaded core assembly, nothing read from disk
-        var refs = DotNetScriptCompiler.CollectReferences([bundled]);
-        Assert.True(CompilesWith(refs, "public class X { public Zeus.IZeusContext? Context; public MyMeta.dbRoot? Db; }"));
+            // framework ref pack + only the bundle-loaded core assembly, nothing read from disk
+            var refs = DotNetScriptCompiler.CollectReferences([bundled]);
+            Assert.True(CompilesWith(refs, "public class X { public Zeus.IZeusContext? Context; public MyMeta.dbRoot? Db; }"));
+        }
+        finally
+        {
+            alc.Unload();
+        }
+    }
+
+    [Fact]
+    public void CollectReferencesSkipsPrivateCoreLibAndDuplicateAssemblyNames()
+    {
+        var alc = new AssemblyLoadContext("duplicate-probe", isCollectible: true);
+        try
+        {
+            using var stream = new MemoryStream(File.ReadAllBytes(typeof(DotNetScriptCompiler).Assembly.Location));
+            var duplicateCore = alc.LoadFromStream(stream);
+
+            var refs = DotNetScriptCompiler.CollectReferences([
+                typeof(object).Assembly,
+                typeof(DotNetScriptCompiler).Assembly,
+                duplicateCore,
+            ]);
+            Assert.True(CompilesWith(refs, "public class X { public Zeus.IZeusContext? Context; public MyMeta.dbRoot? Db; }"));
+        }
+        finally
+        {
+            alc.Unload();
+        }
     }
 }
